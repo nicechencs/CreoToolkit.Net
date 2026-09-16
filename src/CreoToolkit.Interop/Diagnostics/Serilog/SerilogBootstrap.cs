@@ -4,7 +4,9 @@ using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
 using global::Serilog;
+using global::Serilog.Core;
 using global::Serilog.Events;
+using global::Serilog.Formatting.Display;
 using CreoToolkit.Interop.Diagnostics;
 
 namespace CreoToolkit.Interop.Diagnostics.Serilog;
@@ -16,7 +18,8 @@ public sealed record SerilogLogOptions(
     CreoToolkit.Interop.Diagnostics.CreoLogLevel Level,
     CreoToolkit.Interop.Diagnostics.CreoLogFormat Format,
     int RetentionDays,
-    string Layer);
+    string Layer,
+    LoggingLevelSwitch? LevelSwitch = null);
 
 /// <summary>
 /// Serilog 引擎引导：把 CreoLog 的语义参数翻译成 LoggerConfiguration，
@@ -29,35 +32,60 @@ public static class SerilogBootstrap
     private static readonly Regex StampedPattern =
         new(@"-\d{8}-\d{6}-\d+\.[A-Za-z0-9]+$", RegexOptions.Compiled);
 
+    // 单文件上限：超过后 Serilog 自动滚动为 <stem>_001.log 等，避免长驻会话无界增长。
+    // 保留策略不交给 Serilog（retainedFileCountLimit=null），统一由 CleanupOldLogs 按 mtime 清理。
+    private const long DefaultFileSizeLimitBytes = 32L * 1024 * 1024;
+
+    private const string TextFileTemplate =
+        "[{Timestamp:yyyy-MM-dd HH:mm:ss.fff}][{Level:u3}][{Layer}][{Loc}] {Message}{NewLine}{Exception}";
+
+    private const string ConsoleTemplate =
+        "[{Timestamp:HH:mm:ss}][{Level:u3}][{Layer}][{Loc}] {Message}{NewLine}{Exception}";
+
     /// <summary>
     /// 根据 options 构建 Serilog ILogger。
-    /// File sink 使用 JsonlFormatter（同 namespace，由 S3 提供）。
-    /// 若 Format=Text/Both，再挂 stderr Console sink 输出纯文本。
+    /// 文件格式遵循 <see cref="CreoLogFormat"/>：text=文本文件；json/both=JSONL 文件。
+    /// both 额外挂 stderr Console sink 输出纯文本；json 不输出 console。
+    /// LevelSwitch 非 null 时用动态级别开关，否则用构建期快照。
     /// </summary>
     public static global::Serilog.ILogger BuildLogger(SerilogLogOptions options)
     {
         if (options is null) throw new ArgumentNullException(nameof(options));
 
-        var cfg = new LoggerConfiguration()
-            .MinimumLevel.Is(MapLevel(options.Level));
+        var cfg = options.LevelSwitch is not null
+            ? new LoggerConfiguration().MinimumLevel.ControlledBy(options.LevelSwitch)
+            : new LoggerConfiguration().MinimumLevel.Is(MapLevel(options.Level));
 
-        // 文件 sink：JSONL，不滚动（path 已唯一）
-        var jsonlFormatter = new JsonlFormatter(options.Layer);
-        cfg = cfg.WriteTo.File(
-            formatter: jsonlFormatter,
-            path: options.FilePath,
-            rollingInterval: RollingInterval.Infinite,
-            rollOnFileSizeLimit: false,
-            shared: false);
-
-        // stderr 纯文本 sink（按需）
-        if (options.Format == CreoLogFormat.Text || options.Format == CreoLogFormat.Both)
+        // 文件 sink：text 走人类可读文本，json/both 走 JSONL（机器可读真源）。
+        if (options.Format == CreoLogFormat.Text)
         {
-            const string template =
-                "[{Timestamp:HH:mm:ss}][{Level:u3}][{Layer}][{Loc}] {Message}{NewLine}";
+            cfg = cfg.WriteTo.File(
+                formatter: new MessageTemplateTextFormatter(TextFileTemplate, CultureInfo.InvariantCulture),
+                path: options.FilePath,
+                rollingInterval: RollingInterval.Infinite,
+                rollOnFileSizeLimit: true,
+                fileSizeLimitBytes: DefaultFileSizeLimitBytes,
+                retainedFileCountLimit: null,
+                shared: false);
+        }
+        else
+        {
+            cfg = cfg.WriteTo.File(
+                formatter: new JsonlFormatter(options.Layer),
+                path: options.FilePath,
+                rollingInterval: RollingInterval.Infinite,
+                rollOnFileSizeLimit: true,
+                fileSizeLimitBytes: DefaultFileSizeLimitBytes,
+                retainedFileCountLimit: null,
+                shared: false);
+        }
+
+        // both：JSONL 文件 + stderr 文本（三态里唯一同时给人和机器输出的档位）。
+        if (options.Format == CreoLogFormat.Both)
+        {
             cfg = cfg.WriteTo.Console(
                 standardErrorFromLevel: LogEventLevel.Verbose,
-                outputTemplate: template);
+                outputTemplate: ConsoleTemplate);
         }
 
         return cfg.CreateLogger();

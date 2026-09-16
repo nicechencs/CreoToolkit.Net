@@ -9,8 +9,10 @@ namespace CreoToolkit.Sdk.Diagnostics;
 /// 经 <see cref="CreoTelemetry.SdkSource"/> 暴露给 ActivityListener / OpenTelemetry exporter。
 ///
 /// 用法:
-///   CreoSdkLog.Ok("layer", "create", new { name, created });
-///   CreoSdkLog.Fail("parameter", "set", new { model = m.Name, name, value }, ex);
+///   CreoSdkLog.Run("layer", "create", () => { ... }, okProps: () => new { name, created });
+///   CreoSdkLog.Run("parameter", "set", () => { ... }, failProps: () => new { model = m.Name, name, value });
+///
+/// 注：Ok / Fail 需传入 StartOp 返回的 activity（由 Run* 系列代管），不再读 Activity.Current。
 ///
 /// 命名约定:domain 用名词单数(model/layer/feature/parameter/surface/drawing 等),
 /// action 全小写(load/save/create/delete/set 等)。
@@ -33,12 +35,12 @@ internal static class CreoSdkLog
         try
         {
             body();
-            Ok(domain, action, okProps?.Invoke() ?? failProps?.Invoke());
+            Ok(activity, domain, action, okProps?.Invoke() ?? failProps?.Invoke());
         }
         catch (Exception ex)
         {
             AttachOperationData(ex, domain, action);
-            Fail(domain, action, failProps?.Invoke(), ex);
+            Fail(activity, domain, action, failProps?.Invoke(), ex);
             throw;
         }
     }
@@ -56,13 +58,13 @@ internal static class CreoSdkLog
         try
         {
             var result = body();
-            Ok(domain, action, okProps?.Invoke(result) ?? failProps?.Invoke());
+            Ok(activity, domain, action, okProps?.Invoke(result) ?? failProps?.Invoke());
             return result;
         }
         catch (Exception ex)
         {
             AttachOperationData(ex, domain, action);
-            Fail(domain, action, failProps?.Invoke(), ex);
+            Fail(activity, domain, action, failProps?.Invoke(), ex);
             throw;
         }
     }
@@ -84,15 +86,15 @@ internal static class CreoSdkLog
             var result = body();
             var warn = warnProbe?.Invoke(result);
             if (warn is { } spec)
-                Warn(domain, spec.Action, spec.Detail, spec.Props);
+                Warn(activity, domain, spec.Action, spec.Detail, spec.Props);
             else
-                Ok(domain, action, okProps?.Invoke(result) ?? failProps?.Invoke());
+                Ok(activity, domain, action, okProps?.Invoke(result) ?? failProps?.Invoke());
             return result;
         }
         catch (Exception ex)
         {
             AttachOperationData(ex, domain, action);
-            Fail(domain, action, failProps?.Invoke(), ex);
+            Fail(activity, domain, action, failProps?.Invoke(), ex);
             throw;
         }
     }
@@ -110,12 +112,12 @@ internal static class CreoSdkLog
         try
         {
             body();
-            Ok(domain, action, okProps?.Invoke() ?? failProps?.Invoke());
+            Ok(activity, domain, action, okProps?.Invoke() ?? failProps?.Invoke());
         }
         catch (Exception ex)
         {
             AttachOperationData(ex, domain, action);
-            Fail(domain, action, failProps?.Invoke(), ex);
+            Fail(activity, domain, action, failProps?.Invoke(), ex);
         }
     }
 
@@ -132,21 +134,22 @@ internal static class CreoSdkLog
         try
         {
             var result = body();
-            Ok(domain, action, okProps?.Invoke(result) ?? failProps?.Invoke());
+            Ok(activity, domain, action, okProps?.Invoke(result) ?? failProps?.Invoke());
             return result;
         }
         catch (Exception ex)
         {
             AttachOperationData(ex, domain, action);
-            Fail(domain, action, failProps?.Invoke(), ex);
+            Fail(activity, domain, action, failProps?.Invoke(), ex);
             return default;
         }
     }
 
-    /// <summary>成功路径:把 ok props 写入当前 Activity 并设状态 Ok。无 Activity 时静默(Run* 系列保证有 Activity)。</summary>
-    public static void Ok(string domain, string action, object? props = null)
+    /// <summary>成功路径:把 ok props 写入本 op 的 Activity 并设状态 Ok。
+    /// activity 由 StartOp 返回（无监听者时为 null）；显式传入避免误写 Activity.Current 上
+    /// 其他来源的 ambient span。</summary>
+    public static void Ok(Activity? activity, string domain, string action, object? props = null)
     {
-        var activity = Activity.Current;
         if (activity == null)
             return;
 
@@ -154,16 +157,29 @@ internal static class CreoSdkLog
         AddPropsAsTags(activity, props);
     }
 
-    /// <summary>失败路径:把 fail props + 异常信息写入当前 Activity 并设状态 Error。无 Activity 时静默。</summary>
-    public static void Fail(string domain, string action, object? props, Exception ex)
+    /// <summary>失败路径:把 fail props + 异常信息写入本 op 的 Activity 并设状态 Error。
+    /// activity 由 StartOp 返回（无监听者时为 null）。</summary>
+    public static void Fail(Activity? activity, string domain, string action, object? props, Exception ex)
     {
-        var activity = Activity.Current;
         if (activity == null)
             return;
 
         activity.SetStatus(ActivityStatusCode.Error, ex.Message);
         activity.SetTag("exception.type", ex.GetType().FullName);
         activity.SetTag("exception.message", ex.Message);
+        AddPropsAsTags(activity, props);
+    }
+
+    /// <summary>把 Warn 写入指定 op 的 Activity（no-op when null）。供 Run 系列使用，
+    /// 不再回落到 Activity.Current，避免污染其他来源的 ambient span。</summary>
+    public static void Warn(Activity? activity, string domain, string action, string detail, object? props = null)
+    {
+        if (activity == null)
+            return;
+
+        var eventTags = BuildEventTags(domain, action, props);
+        eventTags["ctk.detail"] = detail;
+        activity.AddEvent(new ActivityEvent($"{domain}.{action}", default, eventTags));
         AddPropsAsTags(activity, props);
     }
 

@@ -120,18 +120,33 @@ public static class DiagnosticBundle
     /// host-marker / host-native / latest.json 写入已退役,native-bootstrap JSONL 是唯一真源。</summary>
     private static IEnumerable<(string EntryName, string SrcPath)> EnumerateFileSources(DiagnosticBundleOptions options)
     {
-        // managed log
+        // managed log：实际写入文件名可能是字面 base，也可能带
+        // -yyyyMMdd-HHmmss-pid 后缀（dailyRolling）。按最后修改时间选最新一份
+        // 映射为 zip 内的规范名 logs/host-managed.log，其余文件进入 managed-rolled。
         var managedDefault = Path.Combine(AppContext.BaseDirectory, "logs", "host-managed.log");
         var managed = Environment.GetEnvironmentVariable(CtkEnv.HostManagedLog) ?? managedDefault;
-        yield return ("logs/host-managed.log", managed);
+        var managedFiles = FindManagedLogFiles(managed);
+        if (managedFiles.Count > 0)
+        {
+            yield return ("logs/host-managed.log", managedFiles[0]);
+            for (int i = 1; i < managedFiles.Count; i++)
+                yield return ($"logs/managed-rolled/{Path.GetFileName(managedFiles[i])}", managedFiles[i]);
+        }
+        else
+        {
+            // 无序列（dailyRolling=false 的字面 base path 或尚未产生）：仍登记 base 以便 manifest 标 missing
+            yield return ("logs/host-managed.log", managed);
+        }
 
         // native-bootstrap JSONL：读 latest-session.pointer 定位当前 session 文件
         var bootstrapJsonl = ResolveBootstrapJsonl();
         yield return ("logs/native-bootstrap.jsonl", bootstrapJsonl);
 
-        // managed rolled logs
+        // legacy：旧实现的 <dir>/archive/ 归档
         foreach (var rolled in FindRolledLogs(managed))
-            yield return ($"logs/managed-rolled/{Path.GetFileName(rolled)}", rolled);
+            // archive 目录可能包含与当前 stamped log 同名的文件；使用独立
+            // 前缀保留两份内容，避免 ZipArchive 中出现重复 entry 名。
+            yield return ($"logs/managed-archive/{Path.GetFileName(rolled)}", rolled);
 
         // native-bootstrap 历史：同目录下所有 native-bootstrap-*.jsonl（除当前 session）
         foreach (var older in FindOlderBootstrapJsonl(bootstrapJsonl))
@@ -223,19 +238,154 @@ public static class DiagnosticBundle
         }
     }
 
+    /// <summary>managed log 文件（字面 base + &lt;stem&gt;-*.ext，最新在前）。
+    /// dailyRolling 下 CreoLog 写出的是 host-managed-{yyyyMMdd-HHmmss}-{pid}.log，
+    /// 但兼容字面 base 与两者并存的场景。</summary>
+    private static List<string> FindManagedLogFiles(string baseFilePath)
+    {
+        var result = new List<string>();
+        if (string.IsNullOrEmpty(baseFilePath)) return result;
+
+        // Discovery always uses a full path.  Path.GetDirectoryName("host-managed")
+        // is empty, although CreoLog writes that relative base in the current
+        // directory; normalizing first keeps both cases in the same search path.
+        string normalizedBase;
+        try { normalizedBase = Path.GetFullPath(baseFilePath); }
+        catch { return result; }
+
+        string? dir;
+        string stem;
+        string ext;
+        try
+        {
+            dir = Path.GetDirectoryName(normalizedBase);
+            stem = Path.GetFileNameWithoutExtension(normalizedBase);
+            ext = Path.GetExtension(normalizedBase);
+        }
+        catch { return result; }
+
+        if (string.IsNullOrEmpty(dir)) return result;
+        try
+        {
+            if (!Directory.Exists(dir)) return result;
+        }
+        catch { return result; }
+
+        var hadExtension = !string.IsNullOrEmpty(ext);
+        if (!hadExtension) ext = ".log";
+        var pattern = $"{stem}-*{ext}";
+        var discovered = new List<string>();
+
+        // Keep the original literal base behavior, and also check the .log path
+        // that CreoLog uses when a literal base has no extension.
+        AddManagedPathIfPresent(discovered, normalizedBase);
+        if (!hadExtension)
+            AddManagedPathIfPresent(discovered, normalizedBase + ".log");
+
+        try
+        {
+            foreach (var f in Directory.EnumerateFiles(dir!, pattern))
+                AddManagedPathIfPresent(discovered, f);
+        }
+        catch { /* inaccessible directory / invalid pattern: retain literal matches */ }
+
+        // Sort using precomputed timestamps so an inaccessible file cannot throw
+        // from a List.Sort comparer while EnumerateFileSources is being iterated.
+        var timestamps = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+        foreach (var path in discovered)
+        {
+            try { timestamps[path] = File.GetLastWriteTimeUtc(path); }
+            catch { timestamps[path] = DateTime.MinValue; }
+        }
+
+        try
+        {
+            discovered.Sort((a, b) =>
+            {
+                var compare = timestamps[b].CompareTo(timestamps[a]);
+                if (compare != 0) return compare;
+
+                // 同一时间戳时优先保留字面 base，避免结果依赖目录枚举顺序。
+                var aIsBase = string.Equals(a, normalizedBase, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(a, normalizedBase + ".log", StringComparison.OrdinalIgnoreCase);
+                var bIsBase = string.Equals(b, normalizedBase, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(b, normalizedBase + ".log", StringComparison.OrdinalIgnoreCase);
+                if (aIsBase != bIsBase) return aIsBase ? -1 : 1;
+                return StringComparer.OrdinalIgnoreCase.Compare(a, b);
+            });
+        }
+        catch
+        {
+            // Discovery is best effort; retain directory enumeration order if a
+            // platform-specific comparer unexpectedly rejects an entry.
+        }
+
+        foreach (var path in discovered)
+            result.Add(PreserveManagedPathStyle(baseFilePath, path));
+        return result;
+    }
+
+    private static void AddManagedPathIfPresent(List<string> paths, string path)
+    {
+        try
+        {
+            if (File.Exists(path)
+                && !paths.Any(existing => string.Equals(existing, path, StringComparison.OrdinalIgnoreCase)))
+            {
+                paths.Add(path);
+            }
+        }
+        catch { /* a single inaccessible path must not abort collection */ }
+    }
+
+    // Discovery paths are absolute, but retain the caller's relative/absolute
+    // spelling in manifest metadata and redaction behavior.
+    private static string PreserveManagedPathStyle(string originalBasePath, string normalizedPath)
+    {
+        try
+        {
+            if (Path.IsPathRooted(originalBasePath)) return normalizedPath;
+            var originalDir = Path.GetDirectoryName(originalBasePath);
+            var fileName = Path.GetFileName(normalizedPath);
+            return string.IsNullOrEmpty(originalDir) ? fileName : Path.Combine(originalDir, fileName);
+        }
+        catch { return normalizedPath; }
+    }
+
     // managed log 归档在 <dir>/archive/ 子目录
     private static IEnumerable<string> FindRolledLogs(string baseFilePath)
     {
         if (string.IsNullOrEmpty(baseFilePath)) yield break;
-        var dir = Path.GetDirectoryName(baseFilePath);
+        string normalizedBase;
+        string? dir;
+        string stem;
+        string ext;
+        try
+        {
+            normalizedBase = Path.GetFullPath(baseFilePath);
+            dir = Path.GetDirectoryName(normalizedBase);
+            stem = Path.GetFileNameWithoutExtension(normalizedBase);
+            ext = Path.GetExtension(normalizedBase);
+        }
+        catch { yield break; }
+
         if (string.IsNullOrEmpty(dir)) yield break;
-        var archiveDir = Path.Combine(dir!, "archive");
-        if (!Directory.Exists(archiveDir)) yield break;
-        var stem = Path.GetFileNameWithoutExtension(baseFilePath);
-        var ext = Path.GetExtension(baseFilePath);
+        if (string.IsNullOrEmpty(ext)) ext = ".log";
+
+        string archiveDir;
+        try
+        {
+            archiveDir = Path.Combine(dir!, "archive");
+            if (!Directory.Exists(archiveDir)) yield break;
+        }
+        catch { yield break; }
+
         var pattern = $"{stem}-*{ext}";
-        foreach (var f in Directory.EnumerateFiles(archiveDir, pattern))
-            yield return f;
+        string[] files;
+        try { files = Directory.GetFiles(archiveDir, pattern); }
+        catch { yield break; }
+        foreach (var f in files)
+            yield return PreserveManagedPathStyle(baseFilePath, f);
     }
 
     /// <summary>zip entry 安全名: 拒绝 `..` / 绝对路径 / UNC / Windows 盘符,统一正斜杠相对名(zip-slip 防御)。

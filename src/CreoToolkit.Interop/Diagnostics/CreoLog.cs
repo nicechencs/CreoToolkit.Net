@@ -32,7 +32,9 @@ public enum CreoLogFormat { Text, Json, Both }
 /// L2 统一日志门面（Serilog 引擎）。
 /// 开关 env CTK_DOTNET_LOG（off/on，默认 on），旧 CTK_LOG 仍 fallback。
 /// 级别 env CTK_DOTNET_LOG_LEVEL（error/warn/info/trace），格式 CTK_DOTNET_LOG_FORMAT（text/json/both）。
-/// CTK_ENV 基线（development/production）控制默认级别与格式。
+/// 格式语义：text=人类可读文本文件；json=JSONL 文件；both=JSONL 文件 + stderr 文本。
+/// CTK_ENV 基线（development/production）控制默认级别与格式（development=Trace/Both，
+/// production=Warn/Json，未设置=Info/Json）。
 /// 默认目录：logs/dotnet/creo-{yyyyMMdd}-{HHmmss}-{pid}.log（首次写入时惰性生成）。
 /// SetSink 注入测试 sink 后，每条事件以 JSONL（json/both）+ text 形态分别 callback。线程安全。
 /// </summary>
@@ -43,15 +45,16 @@ public static class CreoLog
     // Serilog 引擎实例（lazy init）
     private static ILogger? _serilog;
 
-    // 当前已绑定的文件 base path（用于 SetFile 切换时归档判定）
-    private static string? _currentBasePath;
+    // 构建期参数（format 等）在运行期变更后置位，下次写入时重建而非当场 dispose。
+    private static bool _serilogDirty;
 
     // 测试/外部注入的 sink；非 null 时取代默认 Serilog 输出。
     private static Action<string>? _externalSink;
 
     private static bool _enabled;
     private static CreoLogLevel _threshold;
-    private static CreoLogFormat _format = CreoLogFormat.Text;
+    // 默认 json：文件是机器可读的结构化真源；text 需显式选择人类可读文本文件。
+    private static CreoLogFormat _format = CreoLogFormat.Json;
     private static int _retentionDays = 14;
 
     // 用户可选 file path 提示（来自 SetFile/env）。null=用默认目录。
@@ -120,8 +123,9 @@ public static class CreoLog
     /// 设置文件输出 base hint。
     /// dailyRolling=true: 实际文件名 = stem-yyyyMMdd-HHmmss-pid.ext（启动一次性敲定）。
     /// dailyRolling=false: 按 basePath 字面路径写入（缺扩展名时补 .log）。
-    /// 已含完整时间戳后缀的路径按原样使用。多次 SetFile 切换路径时，
-    /// 旧文件归档到同目录 archive/ 子目录。传 null 关闭文件输出。
+    /// 已含完整时间戳后缀的路径按原样使用。dailyRolling=true 首次绑定某个 base 时，
+    /// 已存在的字面 base 文件会归档到同目录 archive/ 子目录；生成的带戳文件由 retention 清理，
+    /// 不进入 archive/。dailyRolling=false 按字面路径持续写入且不自动归档。传 null 关闭文件输出。
     /// </summary>
     public static void SetFile(string? basePath, bool dailyRolling = true)
     {
@@ -133,7 +137,6 @@ public static class CreoLog
             if (string.IsNullOrEmpty(basePath))
             {
                 _fileBaseHint = null;
-                _currentBasePath = null;
                 _fileDailyRolling = true;
                 return;
             }
@@ -154,7 +157,6 @@ public static class CreoLog
                 CleanupArchiveDir(basePath!);
 
             _fileBaseHint = basePath;
-            _currentBasePath = basePath;
             _fileDailyRolling = dailyRolling;
             // 不立即构建 Serilog —— 留给首次写入惰性触发
         }
@@ -171,6 +173,7 @@ public static class CreoLog
             try { d.Dispose(); } catch { /* 吞错 */ }
         }
         _serilog = null;
+        _serilogDirty = false;
     }
 
     // 清理 archive/ 子目录中 mtime 早于 RetentionDays 的文件（RetentionDays<=0 跳过）
@@ -272,10 +275,13 @@ public static class CreoLog
 
             if (!_formatOverridden)
             {
+                var previousFormat = _format;
                 if (explicitFormat != null) _format = ParseFormat(explicitFormat);
                 else if (ctkEnv == "development") _format = CreoLogFormat.Both;
-                else if (ctkEnv == "production") _format = CreoLogFormat.Json;
-                else _format = CreoLogFormat.Text;
+                else _format = CreoLogFormat.Json;   // production 与未设置均为 json
+                // format 是构建期参数（决定文件 formatter / console sink），变更须重建。
+                if (_format != previousFormat && _serilog is not null)
+                    _serilogDirty = true;
             }
 
             if (!_retentionOverridden)
@@ -441,6 +447,11 @@ public static class CreoLog
     private static readonly global::Serilog.Core.LoggingLevelSwitch BridgeLevelSwitch =
         new(MapToSerilogLevel(CreoLogLevel.Trace));
 
+    // 文件 logger 的动态级别开关：运行期改 CreoLog.Level 时无需重建 Serilog 实例
+    // （旧的 .MinimumLevel.Is 构建期快照会让降级后的 trace 被静默过滤）。
+    private static readonly global::Serilog.Core.LoggingLevelSwitch FileLevelSwitch =
+        new(MapToSerilogLevel(CreoLogLevel.Info));
+
     private static readonly Lazy<ILogger> BridgeRoot = new(
         () => new LoggerConfiguration()
             .MinimumLevel.ControlledBy(BridgeLevelSwitch)
@@ -471,7 +482,9 @@ public static class CreoLog
 
     private static void SyncBridgeLevelSwitchLocked()
     {
-        BridgeLevelSwitch.MinimumLevel = MapToSerilogLevel(_threshold);
+        var mapped = MapToSerilogLevel(_threshold);
+        BridgeLevelSwitch.MinimumLevel = mapped;
+        FileLevelSwitch.MinimumLevel = mapped;
     }
 
     // ───────── 核心写入 ─────────
@@ -485,7 +498,7 @@ public static class CreoLog
         CreoLogFormat format;
         Action<string>? externalSink;
         ILogger? logger;
-        List<(string Old, string New)> pendingDeprecations;
+        List<(string Old, string New)>? pendingDeprecations = null;
         lock (Gate)
         {
             if (!_enabled || (int)level > (int)_threshold) return;
@@ -495,12 +508,15 @@ public static class CreoLog
             externalSink = _externalSink;
             // 外部 sink 模式不需要 Serilog 实例，但 deprecation 仍需 drain 到外部 sink
             logger = externalSink is null ? EnsureSerilogLocked() : null;
-            pendingDeprecations = new List<(string, string)>(_pendingDeprecationWarns);
-            if (externalSink is not null) _pendingDeprecationWarns.Clear();
+            if (externalSink is not null)
+            {
+                pendingDeprecations = new List<(string, string)>(_pendingDeprecationWarns);
+                _pendingDeprecationWarns.Clear();
+            }
         }
 
         // 外部 sink 模式下，先把 pending deprecation 通过外部 sink 写出
-        if (externalSink is not null && pendingDeprecations.Count > 0)
+        if (externalSink is not null && pendingDeprecations is { Count: > 0 })
         {
             foreach (var (oldN, newN) in pendingDeprecations)
             {
@@ -595,8 +611,12 @@ public static class CreoLog
                     if (esv is not null) props2.Add(new LogEventProperty("err", esv));
                 }
 
-                // Serilog 4.x 的 TextToken 是 internal，外部无法 new。用 MessageTemplateParser 解析。
-                var template = new global::Serilog.Parsing.MessageTemplateParser().Parse(msg);
+                // 用常量模板承载原消息，避免把 msg 文本本身当模板再解析：
+                // msg 若含 {level}/{module} 等与已 push property 同名的 token 会被错误替换，
+                // 与生产路径 enriched.Write("{Message}", msg) 的行为不一致。
+                // Serilog 4.x 的 TextToken 是 internal，外部无法 new，故仍用解析器。
+                var template = new global::Serilog.Parsing.MessageTemplateParser().Parse("{Message}");
+                props2.Add(new LogEventProperty("Message", new ScalarValue(msg)));
 
                 var ev = new LogEvent(
                     DateTimeOffset.Now,
@@ -653,7 +673,12 @@ public static class CreoLog
     // 惰性构建 Serilog 实例（持锁）
     private static ILogger EnsureSerilogLocked()
     {
-        if (_serilog is not null) return _serilog;
+        if (_serilog is not null && !_serilogDirty) return _serilog;
+        if (_serilogDirty)
+        {
+            DisposeSerilogLocked();
+            _serilogDirty = false;
+        }
 
         string baseHint = _fileBaseHint ?? DefaultBaseHint();
         bool dailyRolling = _fileDailyRolling;
@@ -677,7 +702,8 @@ public static class CreoLog
                 Level: _threshold,
                 Format: _format,
                 RetentionDays: _retentionDays,
-                Layer: "app");
+                Layer: "app",
+                LevelSwitch: FileLevelSwitch);
             _serilog = SerilogBootstrap.BuildLogger(options);
 
             if (dailyRolling)
@@ -773,7 +799,8 @@ public static class CreoLog
 
     /// <summary>从 Exception 构建 err 字段。</summary>
     public static object? WithError(Exception? ex) => ex == null ? null
-        : new { code = ex.HResult, type = ex.GetType().FullName, msg = ex.Message, stack = ex.StackTrace };
+        : new { code = ex.HResult, type = ex.GetType().FullName, msg = ex.Message, stack = ex.StackTrace,
+                inner = WithError(ex.InnerException) };
 
     private static CreoLogLevel ParseLevel(string? value)
     {
@@ -824,7 +851,6 @@ public static class CreoLog
             _deprecatedEnvWarned.Clear();
             _pendingDeprecationWarns.Clear();
             _fileBaseHint = null;
-            _currentBasePath = null;
             _fileDailyRolling = true;
 
             // 显式参数 > 新 env > 旧 env fallback > ctkEnv 基线 > 默认
@@ -834,8 +860,7 @@ public static class CreoLog
             CreoLogFormat resolvedFormat;
             if (envFormat != null) resolvedFormat = ParseFormat(envFormat);
             else if (ctkEnv == "development") resolvedFormat = CreoLogFormat.Both;
-            else if (ctkEnv == "production") resolvedFormat = CreoLogFormat.Json;
-            else resolvedFormat = CreoLogFormat.Text;
+            else resolvedFormat = CreoLogFormat.Json;   // production 与未设置均为 json
             _format = resolvedFormat;
             _formatOverridden = envFormat != null;
 

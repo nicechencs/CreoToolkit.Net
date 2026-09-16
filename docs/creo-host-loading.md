@@ -241,13 +241,17 @@ WinForms sample 的 `CreoToolkit` 顶级菜单只有 7 个主题 dialog launcher
 
 | 环境变量 | 默认 / 说明 |
 |---|---|
-| `CTK_ENV` | `development` 与 `production` 日志基线；未设置时按日志组件默认值处理。 |
-| `CTK_DOTNET_LOG` | .NET 日志总开关。 |
-| `CTK_DOTNET_LOG_LEVEL` | `error` / `warn` / `info` / `trace`。 |
-| `CTK_DOTNET_LOG_FORMAT` | `text` / `json` / `both`。 |
-| `CTK_DOTNET_LOG_FILE` | managed 日志 base path；无扩展名时自动补 `.log`。 |
-| `CTK_DOTNET_LOG_RETENTION_DAYS` | managed 日志保留天数，默认 14。 |
-| `CTK_HOST_MANAGED_LOG` | Host managed log 兼容 base path；未设置时为 `AppContext.BaseDirectory/logs/host-managed.log`。 |
+| `CTK_ENV` | 日志基线：`development` = Trace + both；`production` = Warn + json；未设置 = Info + json。 |
+| `CTK_DOTNET_LOG` | .NET 日志总开关（`off` / `0` 关闭，其余开启）。 |
+| `CTK_DOTNET_LOG_LEVEL` | `error` / `warn` / `info` / `trace`；运行期改 `CreoLog.Level` 通过 `LoggingLevelSwitch` 立即生效。 |
+| `CTK_DOTNET_LOG_FORMAT` | `text`=人类可读文本文件；`json`=JSONL 文件；`both`=JSONL 文件 + stderr 文本。 |
+| `CTK_DOTNET_LOG_FILE` | 非 Host 消费者（SDK/Agent）的日志 base path；Host 启动时由 `CTK_HOST_MANAGED_LOG` 显式接管。 |
+| `CTK_DOTNET_LOG_RETENTION_DAYS` | managed 日志保留天数，默认 14；`<=0` 不清理。 |
+| `CTK_HOST_MANAGED_LOG` | Host managed log base path；未设置时为 `AppContext.BaseDirectory/logs/host-managed.log`。 |
+
+managed 实际文件名为 `<base>-<yyyyMMdd-HHmmss>-<pid>.log`；单文件超过 32 MB 后追加 `_001` 等
+序号。目录内按 stem 保留，`DiagnosticBundle` 采集最新一份为 zip 内 `logs/host-managed.log`。
+字段 schema、级别/layer 语义与 native↔managed 关联方式见 [logging.md](./logging.md)。
 
 旧 `CTK_LOG*` 名称只作迁移期 fallback，并产生 deprecated WARN；新配置不得继续写旧名称。
 

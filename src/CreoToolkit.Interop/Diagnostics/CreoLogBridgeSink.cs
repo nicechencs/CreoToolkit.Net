@@ -1,5 +1,5 @@
 using System.Collections.Generic;
-using System.Globalization;
+using CreoToolkit.Interop.Diagnostics.Serilog;
 using global::Serilog.Core;
 using global::Serilog.Events;
 using global::Serilog.Parsing;
@@ -15,7 +15,7 @@ internal sealed class CreoLogBridgeSink : ILogEventSink
 
         CreoLog.WriteRaw(
             MapLevel(logEvent.Level),
-            logEvent.MessageTemplate.Render(logEvent.Properties, CultureInfo.InvariantCulture),
+            JsonlFormatter.RenderMessage(logEvent),
             @event: TryGetString(logEvent, "event"),
             module: TryGetString(logEvent, "module"),
             props: ExtractProps(logEvent),

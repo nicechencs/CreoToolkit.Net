@@ -138,6 +138,7 @@ scripts\deploy.ps1 -StageRoot artifacts\stage\Release -Destination deploy
 - **宿主加载流程图**（drawio 六页：总览 → Native → Bootstrap → LoadFrom → Run → 停止）: [docs/diagrams/host-loading.md](docs/diagrams/host-loading.md) · [host-loading.drawio](docs/diagrams/host-loading.drawio)
 - **宿主加载、配置与卸载契约**: [docs/creo-host-loading.md](docs/creo-host-loading.md)
 - **event 命名速查表**（结构化日志 event 键清单与命名规则）: [docs/event-catalog.md](docs/event-catalog.md)
+- **日志与诊断契约**（JSONL schema / 级别 / 配置 / 保留策略）: [docs/logging.md](docs/logging.md)
 - **SDK 对象模型、事件与异常契约**（六原则 / R1-R5 命名规则 / 验收标准）: [src/CreoToolkit.Sdk/README.md](src/CreoToolkit.Sdk/README.md)
 - **NativeAbi 源码组织**（L1 C ABI 共享源码池，非独立 DLL）: [src/CreoToolkit.NativeAbi/README.md](src/CreoToolkit.NativeAbi/README.md)
 - **NativeHost 构建与客户 runtime 部署**（VC140 生产工具链 + framework-dependent 默认通道）: [src/CreoToolkit.NativeHost/README.md](src/CreoToolkit.NativeHost/README.md)

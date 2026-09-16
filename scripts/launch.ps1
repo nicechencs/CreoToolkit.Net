@@ -242,7 +242,6 @@ if (-not $hadLoadModelPath) {
 $env:CTK_HOST_ALLOW_MODEL_WRITE = '1'
 
 $ManagedLog = Join-Path $LogDir 'host-managed.log'
-$CtkLogBase = Join-Path $LogDir 'ctk-log'
 
 $env:CTK_HOST_MANAGED_LOG = $ManagedLog
 # v4.1: native-bootstrap JSONL 落在 CTK_BOOTSTRAP_LOG_DIR(旧名 CTK_HOST_LOG_DIR 已 deprecated)
@@ -251,7 +250,8 @@ $env:CTK_BOOTSTRAP_LOG_DIR = $LogDir
 $env:CTK_DOTNET_LOG = 'on'
 $env:CTK_DOTNET_LOG_LEVEL = if ($NoTrace) { 'warn' } else { 'trace' }
 $env:CTK_DOTNET_LOG_FORMAT = if ($NoTrace) { 'json' } else { 'both' }
-$env:CTK_DOTNET_LOG_FILE = $CtkLogBase
+# 注：Host 启动时用 CTK_HOST_MANAGED_LOG 调 CreoLog.SetFile（显式优先），
+# CTK_DOTNET_LOG_FILE 仅对非 Host 消费者（SDK/Agent）生效，此处不再设置以免误导。
 $env:CTK_MESSAGEBAR_MIRROR = 'on'
 
 $env:CTK_APP_RUN_COMMAND = $null  # 显式清,等用户点菜单
@@ -287,14 +287,18 @@ finally {
 
 # ---- 9. Tail log ----
 Write-Host ''
-Write-Host "=== host-managed.log (last 40 lines) ==="
-$dated = Join-Path $LogDir ("host-managed-{0}.log" -f (Get-Date -Format 'yyyy-MM-dd'))
-if (Test-Path -LiteralPath $dated) {
-    Get-Content -LiteralPath $dated -Tail 40
+Write-Host "=== host-managed log (last 40 lines) ==="
+# CreoLog dailyRolling 实际文件名为 host-managed-<yyyyMMdd-HHmmss>-<pid>.log，
+# 取目录内最新一份；字面 base path 仅作 dailyRolling=false 的兼容回退。
+$managedLatest = @(Get-ChildItem -LiteralPath $LogDir -Filter 'host-managed-*.log' -File -ErrorAction SilentlyContinue |
+    Sort-Object -Property LastWriteTime -Descending |
+    Select-Object -First 1)
+if ($managedLatest.Count -gt 0) {
+    Get-Content -LiteralPath $managedLatest[0].FullName -Tail 40
 } elseif (Test-Path -LiteralPath $ManagedLog) {
     Get-Content -LiteralPath $ManagedLog -Tail 40
 } else {
-    Write-Host "[!] managed log 未产生 ($ManagedLog / $dated)" -ForegroundColor Yellow
+    Write-Host "[!] managed log 未产生 ($LogDir\host-managed-*.log)" -ForegroundColor Yellow
     Write-Host '    可能 Creo 启动失败或 Bootstrap 未到日志绑定步骤'
 }
 

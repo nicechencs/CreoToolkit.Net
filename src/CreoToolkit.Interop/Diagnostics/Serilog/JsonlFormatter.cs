@@ -1,12 +1,14 @@
 // Serilog → JSONL 输出器：严格按契约字段顺序，禁止 Unicode 转义中文
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using global::Serilog.Events;
 using global::Serilog.Formatting;
+using global::Serilog.Parsing;
 
 namespace CreoToolkit.Interop.Diagnostics.Serilog
 {
@@ -57,8 +59,8 @@ namespace CreoToolkit.Interop.Diagnostics.Serilog
                 // 5. event —— 同上
                 WriteNullableScalarStringField(w, "event", logEvent, string.Empty);
 
-                // 6. msg —— 模板渲染
-                w.WriteString("msg", logEvent.MessageTemplate.Render(logEvent.Properties, System.Globalization.CultureInfo.InvariantCulture));
+                // 6. msg —— 模板渲染（字符串属性不加引号，见 RenderMessage）
+                w.WriteString("msg", RenderMessage(logEvent));
 
                 // 7. loc
                 w.WriteString("loc", TryGetScalarString(logEvent, "loc") ?? string.Empty);
@@ -89,6 +91,68 @@ namespace CreoToolkit.Interop.Diagnostics.Serilog
         }
 
         // ---- 辅助 ----
+
+        /// <summary>
+        /// 渲染消息模板为纯文本：Serilog 4 的默认渲染会给字符串标量加引号
+        /// （`ScalarValue.Render` 默认 "quote"，仅 `:l` 不加），这会让 CreoLog 的
+        /// `msg` 字段变成 `"\"hello\""` 双重引号。字符串按字面量渲染；其余值
+        /// 交给 Serilog 的 PropertyToken，以保留格式和对齐语义。
+        /// </summary>
+        internal static string RenderMessage(LogEvent logEvent)
+        {
+            var writer = new StringWriter();
+            foreach (var token in logEvent.MessageTemplate.Tokens)
+            {
+                if (token is TextToken text)
+                {
+                    writer.Write(text.Text);
+                    continue;
+                }
+
+                if (token is PropertyToken property)
+                {
+                    if (!logEvent.Properties.TryGetValue(property.PropertyName, out var value))
+                    {
+                        writer.Write(property.ToString());
+                        continue;
+                    }
+
+                    if (value is ScalarValue { Value: string stringValue })
+                    {
+                        WriteAlignedString(writer, stringValue, property.Alignment);
+                        continue;
+                    }
+
+                    // PropertyToken.Render preserves scalar formats (for example :x)
+                    // and alignment, and keeps the existing Serilog rendering for
+                    // structures and sequences.
+                    property.Render(logEvent.Properties, writer, CultureInfo.InvariantCulture);
+                    continue;
+                }
+
+                writer.Write(token.ToString());
+            }
+
+            return writer.ToString();
+        }
+
+        private static void WriteAlignedString(StringWriter writer, string value, Alignment? alignment)
+        {
+            if (alignment is not { } a || value.Length >= a.Width)
+            {
+                writer.Write(value);
+                return;
+            }
+
+            if (a.Direction == AlignmentDirection.Left)
+            {
+                writer.Write(value.PadRight(a.Width));
+            }
+            else
+            {
+                writer.Write(value.PadLeft(a.Width));
+            }
+        }
 
         private static string MapLevel(LogEventLevel lvl) => lvl switch
         {
@@ -168,11 +232,7 @@ namespace CreoToolkit.Interop.Diagnostics.Serilog
             var ex = ev.Exception;
             if (ex is not null)
             {
-                w.WriteStartObject();
-                w.WriteString("type", ex.GetType().FullName ?? ex.GetType().Name);
-                w.WriteString("msg", ex.Message ?? string.Empty);
-                w.WriteString("stack", ex.StackTrace ?? string.Empty);
-                w.WriteEndObject();
+                WriteException(w, ex);
                 return;
             }
             if (ev.Properties.TryGetValue("err", out var v) && v is StructureValue)
@@ -181,6 +241,22 @@ namespace CreoToolkit.Interop.Diagnostics.Serilog
                 return;
             }
             w.WriteNullValue();
+        }
+
+        /// <summary>递归写异常链：code(HResult) / type / msg / stack / inner。</summary>
+        private static void WriteException(Utf8JsonWriter w, Exception ex)
+        {
+            w.WriteStartObject();
+            w.WriteNumber("code", ex.HResult);
+            w.WriteString("type", ex.GetType().FullName ?? ex.GetType().Name);
+            w.WriteString("msg", ex.Message ?? string.Empty);
+            w.WriteString("stack", ex.StackTrace ?? string.Empty);
+            if (ex.InnerException is not null)
+            {
+                w.WritePropertyName("inner");
+                WriteException(w, ex.InnerException);
+            }
+            w.WriteEndObject();
         }
 
         /// <summary>把任意 LogEventPropertyValue 递归写为 JSON。</summary>

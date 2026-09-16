@@ -97,13 +97,13 @@ public static class CtkEnv
     public const string DotnetLog = "CTK_DOTNET_LOG";
     /// <summary>.NET 日志级别(error/warn/info/trace)。</summary>
     public const string DotnetLogLevel = "CTK_DOTNET_LOG_LEVEL";
-    /// <summary>.NET 日志格式(text|json|both)。</summary>
+    /// <summary>.NET 日志格式(text=文本文件 | json=JSONL 文件 | both=JSONL 文件+stderr 文本)。</summary>
     public const string DotnetLogFormat = "CTK_DOTNET_LOG_FORMAT";
-    /// <summary>.NET 日志文件 base path(覆盖默认)。</summary>
+    /// <summary>.NET 日志文件 base path(覆盖默认)。注：Host 启动时用 CTK_HOST_MANAGED_LOG 调 CreoLog.SetFile，显式传入优先，故本变量仅对非 Host 消费者(SDK/Agent)生效。</summary>
     public const string DotnetLogFile = "CTK_DOTNET_LOG_FILE";
     /// <summary>.NET 日志滚动保留天数(默认 14)。</summary>
     public const string DotnetLogRetentionDays = "CTK_DOTNET_LOG_RETENTION_DAYS";
-    /// <summary>环境基线(development=trace/info+text+json / production=warn+json)。</summary>
+    /// <summary>环境基线(development=trace+both / production=warn+json / 未设置=info+json)。</summary>
     public const string Env = "CTK_ENV";
 
     // 旧名常量,deprecated。CreoLog.cs 仍提供 ReadEnvWithFallback 兜底,DiagnosticBundle
