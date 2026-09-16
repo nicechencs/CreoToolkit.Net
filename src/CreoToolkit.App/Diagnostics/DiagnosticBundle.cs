@@ -345,11 +345,52 @@ public static class DiagnosticBundle
         try
         {
             if (Path.IsPathRooted(originalBasePath)) return normalizedPath;
-            var originalDir = Path.GetDirectoryName(originalBasePath);
-            var fileName = Path.GetFileName(normalizedPath);
-            return string.IsNullOrEmpty(originalDir) ? fileName : Path.Combine(originalDir, fileName);
+
+            // Discovery paths are rooted at the current directory, even when the
+            // caller supplied a relative base.  Re-relativize the complete
+            // discovered path so subdirectories (for example archive/) are not
+            // lost from manifest metadata or redaction input.  Keep this helper
+            // compatible with net472, which has no Path.GetRelativePath().
+            return GetRelativePathFromCurrentDirectory(normalizedPath);
         }
         catch { return normalizedPath; }
+    }
+
+    private static string GetRelativePathFromCurrentDirectory(string normalizedPath)
+    {
+        var currentDirectory = Path.GetFullPath(Directory.GetCurrentDirectory());
+        var fullPath = Path.GetFullPath(normalizedPath);
+        var currentRoot = Path.GetPathRoot(currentDirectory);
+        var pathRoot = Path.GetPathRoot(fullPath);
+
+        // A relative path cannot cross volume/UNC roots.  The absolute path is
+        // still valid for collection and retains the discovered location.
+        if (string.IsNullOrEmpty(currentRoot)
+            || !string.Equals(currentRoot, pathRoot, StringComparison.OrdinalIgnoreCase))
+            return normalizedPath;
+
+        var separators = new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar };
+        var currentParts = currentDirectory.TrimEnd(separators)
+            .Split(separators, StringSplitOptions.RemoveEmptyEntries);
+        var pathParts = fullPath.TrimEnd(separators)
+            .Split(separators, StringSplitOptions.RemoveEmptyEntries);
+        var common = 0;
+        while (common < currentParts.Length
+            && common < pathParts.Length
+            && string.Equals(currentParts[common], pathParts[common], StringComparison.OrdinalIgnoreCase))
+        {
+            common++;
+        }
+
+        var relativeParts = new List<string>();
+        for (var i = common; i < currentParts.Length; i++)
+            relativeParts.Add("..");
+        for (var i = common; i < pathParts.Length; i++)
+            relativeParts.Add(pathParts[i]);
+
+        return relativeParts.Count == 0
+            ? "."
+            : string.Join(Path.DirectorySeparatorChar.ToString(), relativeParts);
     }
 
     // managed log 归档在 <dir>/archive/ 子目录

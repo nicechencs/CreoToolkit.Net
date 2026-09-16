@@ -145,4 +145,24 @@ public class DiagnosticBundleTests : IDisposable
         using var reader = new StreamReader(zip.GetEntry("logs/host-managed.log")!.Open());
         Assert.Equal("relative-literal-line", reader.ReadToEnd());
     }
+
+    [Fact]
+    public void Collect_Includes_Archive_For_RelativeBase_WithDirectory()
+    {
+        Environment.CurrentDirectory = _dir;
+        const string basePath = "logs/host-managed.log";
+        var archiveDir = Path.Combine(_dir, "logs", "archive");
+        var archivedName = "host-managed-20260101-000000-100.log";
+        Directory.CreateDirectory(archiveDir);
+        File.WriteAllText(Path.Combine(archiveDir, archivedName), "relative-archive-line");
+        Environment.SetEnvironmentVariable(CtkEnv.HostManagedLog, basePath);
+
+        var zipPath = Path.Combine(_dir, "diag-relative-archive.zip");
+        DiagnosticBundle.Collect(new DiagnosticBundleOptions(zipPath));
+
+        using var zip = ZipFile.OpenRead(zipPath);
+        var archiveEntryName = $"logs/managed-archive/{archivedName}";
+        using var reader = new StreamReader(zip.GetEntry(archiveEntryName)!.Open());
+        Assert.Equal("relative-archive-line", reader.ReadToEnd());
+    }
 }
