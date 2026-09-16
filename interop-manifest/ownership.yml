@@ -1,0 +1,2572 @@
+# interop-manifest/ownership.yml
+# 【手工维护真源，禁再生】本表为三态所有权唯一手写真源，禁止任何脚本覆盖(build_ownership.py 已删)。
+#   机读消费: tools/CreoToolkit.Generator/gen_free_contract.py 只读本表 functions:/resources: 段,
+#   生成 Generated/<V>/FreeContract.g.cs 契约表 + Interop.Tests/FreeContractGuardTests 反射守门。
+#   fixed_buffers:/param_direction: 段由 gen_bindings.py 消费(参数封送/方向覆盖)。
+# 溯源: 条目据 tools/CreoToolkit.Generator/out/ir.json (Creo4 M140) + protoolkit/includes 注释人工核实。
+# Schema: 方案 §5.2 | mode 三态: data=copy-out-free-in | live=留 owned 句柄 | borrowed=即拷不放(原指针禁 free)
+# owned: false + borrowed_or_unknown: true  -> 该出参为"容器内部子项借用"，L1 绝不自动 free（默认 owned:true 省略）
+# array_free vs element_free: 若资源存在数组级 free(自递归元素), 只记 array_free, 去掉 element_free 防 L1 双重释放(裁定2)
+# 判定准则(裁定1): 分配新对象的 producer 才 owned; 取容器内部已有子项不 owned
+# 启发式预填(§5.2 rule 1-4)自动建议 + 人工确认 + 泄漏测试验证。除 confirmed:true 外，余 confirmed:false。
+# free / free_context (P1-02 增强): 某些资源的正确释放需 function-specific 函数 + 额外上下文入参,
+#   单参 default_free 表达不了。free 覆盖 resource.default_free; free_context 列出释放所需的额外入参名
+#   (L2 handle 在 acquire 时一并捕获)。典型: ProFeatureElemtreeFree(&feature, elemtree) 需 owning feature。
+
+# ProArray/ProWstring/ProWstringArray/ProSelection/ProElement/ProReference
+# 6 个 safe_handle 子类已物删(路径 A try/finally 直调 G.ProXxxFree 已覆盖这些场景)。
+# 仅 ProElemtree 仍走 safe_handle(path B NativeHandleResource, 对应 CreoElemtreeHandle.cs);
+# ProCollection 走 path A 直调 ProCollectionFree(default_free 记之), 不再挂 safe_handle。
+# 其余资源保留 default_free 作元数据真源。复活 safe_handle 路径:重加 safe_handle: 字段 + 写
+# 对应 *Handle.cs(可参 commit history 见原设计)。
+#
+# ── heap-out 扩容放行记录 ──
+# 以下 7 函数经四子类扩容(多维基元/struct 定长/struct-pointer 定长/pointee 合成)
+# **已放行 A 类**,P/Invoke 签名 heap-out 出参=out IntPtr。守门:
+# tests/CreoToolkit.Interop.Tests/GeneratorDirectionGuardTests 的
+# D14_5_Expanded_HeapOut_Param_Is_Out_IntPtr(10 条 InlineData)锁签名存在且方向正确。
+# 所有权四态并存(见下方 functions 段逐函数登记,禁一刀切):
+#   owned→ProArrayFree:ProSeldatSelboxesGet.p_selbox_arr / ProSnapshotTrfsGet.trf_arr
+#   owned→ProDimattachmentarrayFree(专用嵌套 free):ProDimensionAttachmentsGet /
+#     ProDrawingDimAttachpointsGet / ProGtolAttachMakeDimGet 的 attachments_arr
+#     (同函数 dsense_arr 走 ProArrayFree——同函数双出参异 free)
+#   borrowed 禁 free:ProEdgedataGet.p_edge_uv_point_arr(归 ProEdgedataFree 嵌套管)
+#   unknown 保守 borrowed:ProCableLocationsOnSegEndGet.p_boundries(头文件无 free 句)
+# 扩容 runbook 与字符串族豁免边界见 memory `native-bindings-known-unclassified`。
+# ─────────────────────────────────────────────────────────────────────
+resources:
+  ProArray:        { default_free: ProArrayFree                                                  }
+  ProWstring:      { default_free: ProWstringFree                                                }
+  ProWstringArray: { default_free: ProWstringArrayFree                                           }
+  ProSelection:    { default_free: ProSelectionFree                                              }
+  ProElement:      { default_free: ProElementFree                                                }
+  # ProElemtree: 来自 ProFeatureElemtreeExtract 的 LIVE 树根; 释放须 ProFeatureElemtreeFree(&feat,·)
+  #   带 owning feature 上下文, NOT 裸 ProElementFree(已在真实 Creo iter=1000 验证, 见 gate producer)。
+  ProElemtree:     { default_free: null,                  safe_handle: CreoElemtreeHandle }
+  ProReference:    { default_free: ProReferenceFree                                              }
+  ProCollection:   { default_free: ProCollectionFree                                          }
+  # 字符串数组三资源(ProUtil.h): Proarray 形态按值收数组; CountedArray 形态 free 需元素数
+  ProWstringProarray:     { default_free: ProWstringproarrayFree                                    }
+  ProWstringCountedArray: { default_free: ProWstringarrayFree                                       }
+  ProStringCountedArray:  { default_free: ProStringarrayFree                                        }
+
+functions:
+  # ===== confirmed:true (方案 §5.2 已逐条核实) =====
+  ProSelect:
+    confirmed: true
+    file: ProSelection.h
+    returns:
+      p_sel_array:                  # ir.json 真实参数名; 方案文中泛称 p_sel_array
+        resource: SelectionArray
+        mode: borrowed              # ProSelection.h:486-489 static memory, reallocated on subsequent calls; 绝不 free
+        element: ProSelection
+        element_copy: ProSelectionCopy   # 逐元素拷出 owned 副本(live), 副本配 ProSelectionFree
+  ProFeatureElemtreeExtract:
+    confirmed: true
+    file: ProFeature.h
+    returns:
+      p_elem:                       # ir.json 真实参数名 p_elem (方案 §5.2 写作 p_elemtree)
+        resource: ProElemtree       # 专用资源: 释放须带 owning feature 上下文(非裸 ProElementFree)
+        mode: live                  # 喂回 ProFeatureCreate/Redefine, 必须留句柄
+        free: ProFeatureElemtreeFree # function-specific 释放; 已在真实 Creo iter=1000 零泄漏验证
+        free_context: [p_feature]   # 释放所需额外入参(owning feature); L2 handle 在 acquire 时捕获
+        element: ProElement
+  ProMdlDependenciesDataList:
+    confirmed: true
+    file: ProMdl.h
+    returns:
+      p_dependencies_list:
+        resource: ProArray
+        element: ProMdlnameShortdata
+        mode: data
+      model_file_types:             # ir.json 真实参数名 (方案 §5.2 写作 p_model_file_types)
+        resource: ProArray
+        element: ProMdlfileType
+        mode: data
+
+  # ===== confirmed:false (启发式预填, 待人工/泄漏测试核实) =====
+  ProATBMdlnameVerify:
+    confirmed: false
+    file: ProATB.h
+    returns:
+      models_out_of_date:
+        resource: ProArray
+        element: ProMdlFileName
+        mode: data
+      models_unlinked:
+        resource: ProArray
+        element: ProMdlFileName
+        mode: data
+      models_old_version:
+        resource: ProArray
+        element: ProMdlFileName
+        mode: data
+  ProATBVerify:
+    confirmed: false
+    file: ProATB.h
+    returns:
+      models_out_of_date:
+        resource: ProArray
+        element: ProFileName
+        mode: data
+      models_unlinked:
+        resource: ProArray
+        element: ProFileName
+        mode: data
+      models_old_version:
+        resource: ProArray
+        element: ProFileName
+        mode: data
+  ProAnnotationelemQuiltreferenceSurfacesCollect:
+    confirmed: false
+    file: ProAnnotationElem.h
+    returns:
+      surfaces:
+        resource: ProSelection
+        element: ProSelection
+        array_free: ProSelectionarrayFree
+        mode: live
+  ProAnnotationplaneNamesGet:
+    confirmed: false
+    file: ProAnnotation.h
+    returns:
+      names:
+        resource: ProWstringArray
+        element: ProWstring
+        mode: data
+  ProAsmcompconstraintUserdataGet:
+    confirmed: false
+    file: ProAsmcomp.h
+    returns:
+      usr_data:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProAsmcompConstraintsGet:
+    confirmed: false
+    file: ProAsmcomp.h
+    returns:
+      pp_constraints:
+        resource: ProArray
+        element: ProAsmcompconstraint
+        array_free: ProArrayFree          # 官方读取样例用 ProArrayFree(非 ProAsmcompconstraintArrayFree)
+        mode: data
+  # heap-out ProArray-of-fixedlen-array struct 定长子类(非指针元素);
+  #   ProCabling.h:1889 与 tkuse 81157 均只写 "returned as a ProArray" 无 free 句
+  #   (同文件邻近函数全明写 ProArrayFree,此函数独缺)→ 保守登记 mode:borrowed,
+  #   真机验证或 PTC 支持确认前禁自动 free。
+  ProCableLocationsOnSegEndGet:
+    confirmed: false
+    file: ProCabling.h
+    returns:
+      p_boundries:
+        resource: ProArrayBorrowed     # 未登记 default_free 的描述键(borrowed 禁 free 双保险)
+        element: ProCablelocationPair  # `struct pro_model_item[2]` 一元 = ProCablelocation[2]
+        mode: borrowed                 # 头文件无 free 句;禁自动 free 直至真机验证
+  ProCablesFromLogicalGet:
+    confirmed: false
+    file: ProCabling.h
+    returns:
+      p_cable_names:
+        resource: ProArray
+        element: ProName
+        mode: data
+  ProCavitylayoutModelMdlnamesGet:
+    confirmed: false
+    file: ProCavitylayout.h
+    returns:
+      repl_models:
+        resource: ProArray
+        element: ProMdlName
+        mode: data
+  ProCavitylayoutModelnamesGet:
+    confirmed: false
+    file: ProCavitylayout.h
+    returns:
+      repl_models:
+        resource: ProArray
+        element: ProName
+        mode: data
+  ProClcmdElemCreate:
+    confirmed: false
+    file: ProClcmdElem.h
+    returns:
+      commd_lines:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProClcmdElemGet:
+    confirmed: false
+    file: ProClcmdElem.h
+    returns:
+      commd_lines:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProClcmdElemRemove:
+    confirmed: false
+    file: ProClcmdElem.h
+    returns:
+      commd_lines:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProClcmdElemSet:
+    confirmed: false
+    file: ProClcmdElem.h
+    returns:
+      commd_lines:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProConfigoptArrayGet:
+    confirmed: false
+    file: ProUtil.h
+    returns:
+      value_array:
+        resource: ProArray
+        element: ProPath
+        mode: data
+  ProConnectorsFromLogicalGet:
+    confirmed: false
+    file: ProCabling.h
+    returns:
+      p_w_name:
+        resource: ProArray
+        element: ProName
+        mode: data
+  ProCrvcollectionInstrRegen:
+    confirmed: false
+    file: ProCollect.h
+    returns:
+      r_sel_list:
+        resource: ProSelection
+        element: ProSelection
+        array_free: ProSelectionarrayFree   # header: ProArray allocated by function; ProSelectionarrayFree also frees each member -> no per-element free (avoid L1 double-free)
+        mode: live
+  ProCrvcollectionRegenerate:
+    confirmed: false
+    file: ProCrvcollection.h
+    returns:
+      r_result_sellist:
+        resource: ProSelection
+        element: ProSelection
+        array_free: ProSelectionarrayFree   # header ProCrvcollection.h:441 "ProArray ... allocated by the function. Use ProSelectionarrayFree() to free"; array-free recurses members
+        mode: live
+  ProCrvcollinstrReferencesGet:
+    confirmed: false
+    file: ProCrvcollection.h
+    returns:
+      reference_array:
+        resource: ProReference
+        element: ProReference
+        array_free: ProReferencearrayFree
+        mode: live
+  ProCurrentWorkspaceExport:
+    confirmed: false
+    file: ProWorkspace.h
+    returns:
+      source_objects:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProCurrentWorkspaceImport:
+    confirmed: false
+    file: ProWorkspace.h
+    returns:
+      source_objects:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProCurvesCollect:
+    confirmed: false
+    file: ProCollect.h
+    returns:
+      sel_list:
+        resource: ProSelection
+        element: ProSelection
+        array_free: ProSelectionarrayFree   # header: function-allocated ProArray of ProSelection; ProSelectionarrayFree also frees each member
+        mode: live
+  # heap-out ProArray-of-fixedlen-array struct-pointer 子类;
+  #   ProDimension.h:1665 Output attachments_arr "Free this result using ProDimattachmentarrayFree()"
+  #   同函数 dsense_arr(1668)"Free this result using ProArrayFree()" 异 free。
+  ProDimensionAttachmentsGet:
+    confirmed: true
+    file: ProDimension.h
+    returns:
+      attachments_arr:
+        resource: ProArray
+        element: ProDimAttachment
+        free: ProDimattachmentarrayFree
+        mode: data
+      dsense_arr:
+        resource: ProArray
+        element: ProDimSense
+        mode: data
+  ProDimensionSymtextGet:
+    confirmed: false
+    file: ProDimension.h
+    returns:
+      r_text:
+        resource: ProArray
+        element: ProLine
+        mode: data
+  ProDimensionTextGet:
+    confirmed: false
+    file: ProDimension.h
+    returns:
+      p_text:
+        resource: ProArray
+        element: ProLine
+        mode: data
+  ProDimensionTextWstringsGet:
+    confirmed: false
+    file: ProDimension.h
+    returns:
+      p_text:
+        resource: ProWstringProarray
+        element: ProWstring
+        mode: data
+  ProDimensionTextWstringsSet:
+    confirmed: false
+    file: ProDimension.h
+    returns:
+      text:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  # heap-out ProArray-of-fixedlen-array struct-pointer 子类;
+  #   ProDrawing.h Output attachments_arr "Free this result using ProDimattachmentarrayFree()"
+  #   dsense_arr 同族 default ProArrayFree(见 ProDrawingDimAttachpointsViewGet 注释同款);
+  #   同函数双出参异 free 是 PTC 官方一致惯例。
+  ProDrawingDimAttachpointsGet:
+    confirmed: true
+    file: ProDrawing.h
+    returns:
+      attachments_arr:
+        resource: ProArray
+        element: ProDimAttachment
+        free: ProDimattachmentarrayFree
+        mode: data
+      dsense_arr:
+        resource: ProArray
+        element: ProDimSense
+        mode: data
+  ProDrawingDimAttachsGet:
+    confirmed: false
+    file: ProDrawing.h
+    returns:
+      p_attachments_arr:
+        resource: ProSelection
+        element: ProSelection
+        array_free: ProSelectionarrayFree
+        mode: live
+  ProDwgtableCelltextGet:
+    confirmed: false
+    file: ProDwgtable.h
+    returns:
+      lines:
+        resource: ProWstringProarray
+        element: ProWstring
+        mode: data
+  # pointee 是 `Name[N]` 合成形态(ProUvParam[2] canonical)。
+  # ProEdgedataGet.p_edge_uv_point_arr 是 borrowed(高置信,与 ProEdgedataInit 对偶;
+  # underlying 归 ProEdgedataFree 嵌套 free 管);登记 ProArrayFree = 双重释放。
+  ProEdgedataGet:
+    confirmed: true
+    file: ProEdgedata.h
+    returns:
+      p_edge_uv_point_arr:
+        resource: ProArrayBorrowed     # 未登记 default_free 的描述键(borrowed 禁 free 双保险)
+        element: ProUvParam            # `double[2]` 一元 uv 参数化
+        mode: borrowed                 # 归 ProEdgedataFree 嵌套 free 管;禁自动 free
+  ProElementArrayGet:
+    confirmed: false
+    file: ProElement.h
+    returns:
+      p_array_elems:
+        resource: ProElement
+        element: ProElement
+        owned: false
+        borrowed_or_unknown: true
+        mode: live
+        # CAUTION: likely borrows parent-internal pointer; do NOT auto-free; verify at Creo gate (F12 risk)
+        # header ProElement.h:936 "Retrieves the child elements of an array element"; caller preallocs outer ProArray, inner ProElement borrows parent elemtree; no array-free for ProElement exists
+  ProElementChildrenGet:
+    confirmed: false
+    file: ProElement.h
+    returns:
+      p_child_elems:
+        resource: ProElement
+        element: ProElement
+        owned: false
+        borrowed_or_unknown: true
+        mode: live
+        # CAUTION: likely borrows parent-internal pointer; do NOT auto-free; verify at Creo gate (F12 risk)
+        # header ProElement.h:722 "Retrieves the children of the element"; caller preallocs outer ProArray, inner ProElement borrows parent elemtree; no array-free for ProElement exists
+  ProElementCollectionProcess:
+    confirmed: false
+    file: ProElement.h
+    returns:
+      reference_array:
+        resource: ProReference
+        element: ProReference
+        array_free: ProReferencearrayFree
+        mode: live
+  ProElementHoleScrewSizeGet:
+    confirmed: false
+    file: ProHole.h
+    returns:
+      r_screw_size_name:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProElementHoleThreadSeriesGet:
+    confirmed: false
+    file: ProHole.h
+    returns:
+      r_thread_name:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProElementReferencesGet:
+    confirmed: false
+    file: ProElement.h
+    returns:
+      references:
+        resource: ProReference
+        element: ProReference
+        array_free: ProReferencearrayFree   # header ProElement.h:1450 "Free this output using ProReferencearrayFree"; function-allocated ProArray -> producer (NOT a parent-internal child getter)
+        mode: live
+  ProElementWstringGet:
+    confirmed: false
+    file: ProElement.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProFeatureReferenceEditRefsGet:
+    confirmed: false
+    file: ProFeature.h
+    returns:
+      r_orig_ref_arr:
+        resource: ProReference
+        element: ProReference
+        array_free: ProReferencearrayFree   # header ProFeature.h:2922 "Use ProReferencearrayFree() to free the memory"; function-allocated ProArray -> producer
+        mode: live
+  ProFilesList:
+    confirmed: false
+    file: ProUtil.h
+    returns:
+      p_file_name_array:
+        resource: ProArray
+        element: ProPath
+        mode: data
+      p_subdir_name_array:
+        resource: ProArray
+        element: ProPath
+        mode: data
+  ProGeometryAtPointFind:
+    confirmed: false
+    file: ProGeomitem.h
+    returns:
+      p_sel_arr:
+        resource: ProSelection
+        element: ProSelection
+        array_free: ProSelectionarrayFree   # header ProGeomitem.h:424 "The function allocates space for this array; free it using ProSelectionarrayFree()"
+        mode: live
+  # heap-out ProArray-of-fixedlen-array struct-pointer 子类;
+  #   ProGtolAttach.h Output attachments_arr "ProArray of ProDimAttachment. Free using ProDimattachmentarrayFree()"
+  #   dsense_arr 却用 ProArrayFree(与 ProDimensionAttachmentsGet 同款异 free)。
+  ProGtolAttachMakeDimGet:
+    confirmed: true
+    file: ProGtolAttach.h
+    returns:
+      attachments_arr:
+        resource: ProArray
+        element: ProDimAttachment
+        free: ProDimattachmentarrayFree  # 专用嵌套 free(释放内部 ProSelection 元素)
+        mode: data
+      dsense_arr:
+        resource: ProArray
+        element: ProDimSense
+        mode: data                       # default ProArrayFree
+  ProGtolBottomTextGet:
+    confirmed: false
+    file: ProGtol.h
+    returns:
+      below_text:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProGtolCompositeGet:
+    confirmed: false
+    file: ProGtol.h
+    returns:
+      values:
+        resource: ProWstringProarray
+        element: ProWstring
+        mode: data
+      primary:
+        resource: ProWstringProarray
+        element: ProWstring
+        mode: data
+      secondary:
+        resource: ProWstringProarray
+        element: ProWstring
+        mode: data
+      tertiary:
+        resource: ProWstringProarray
+        element: ProWstring
+        mode: data
+  ProGtolDatumReferencesGet:
+    confirmed: false
+    file: ProGtol.h
+    returns:
+      primary:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+      secondary:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+      tertiary:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProGtolIndicatorsGet:
+    confirmed: false
+    file: ProGtol.h
+    returns:
+      symbols:
+        resource: ProWstringProarray
+        element: ProWstring
+        mode: data
+      dfs:
+        resource: ProWstringProarray
+        element: ProWstring
+        mode: data
+  ProGtolIndicatorsSet:
+    confirmed: false
+    file: ProGtol.h
+    returns:
+      symbols:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+      dfs:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProGtolLeftTextGet:
+    confirmed: false
+    file: ProGtol.h
+    returns:
+      left_text:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProGtolNameGet:
+    confirmed: false
+    file: ProGtol.h
+    returns:
+      p_name:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProGtolPrefixGet:
+    confirmed: false
+    file: ProGtol.h
+    returns:
+      prefix:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProGtolRightTextGet:
+    confirmed: false
+    file: ProGtol.h
+    returns:
+      p_text:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProGtolSuffixGet:
+    confirmed: false
+    file: ProGtol.h
+    returns:
+      suffix:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProGtolSymbolStringGet:
+    confirmed: false
+    file: ProGtol.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProGtolTopTextGet:
+    confirmed: false
+    file: ProGtol.h
+    returns:
+      above_text:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProGtolValueStringGet:
+    confirmed: true
+    file: ProGtol.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProImmParamsGet:
+    confirmed: false
+    file: ProImm.h
+    returns:
+      p_param_values:
+        resource: ProArray
+        element: ProName
+        mode: data
+  ProKinDragSnapshotsNamesGet:
+    confirmed: false
+    file: ProKinDrag.h
+    returns:
+      snap_names:
+        resource: ProArray
+        element: ProName
+        mode: data
+  ProMaterialDescriptionGet:
+    confirmed: false
+    file: ProMaterial.h
+    returns:
+      p_description:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProMdlAnnotationplanesCollect:
+    confirmed: false
+    file: ProAnnotation.h
+    returns:
+      names:
+        resource: ProWstringArray
+        element: ProWstring
+        mode: data
+  ProMdlAnnotplanesFromGalleryCollect:
+    confirmed: false
+    file: ProAnnotation.h
+    returns:
+      names:
+        resource: ProWstringArray
+        element: ProWstring
+        mode: data
+  ProMdlCommonnameGet:
+    confirmed: true     # sync 泄漏门 G3 真验: 2026-06-16 09:46, CREO_WSTRING alloc=free=1000 leaked=0 (copy-out-free-in / ProWstringFree)
+    file: ProMdl.h
+    returns:
+      common_name:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProMdlFeatBackupOwnerNamesGet:
+    confirmed: false
+    file: ProFeature.h
+    returns:
+      TopToOwnerModelNames:
+        resource: ProArray
+        element: ProMdlName
+        mode: data
+  ProMdlFeatBackupRefMdlNamesGet:
+    confirmed: false
+    file: ProFeature.h
+    returns:
+      TopToRefModelNames:
+        resource: ProArray
+        element: ProMdlName
+        mode: data
+  ProMecherrobjMessageGet:
+    confirmed: false
+    file: ProMechItem.h
+    returns:
+      message:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProMenuStringsSelect:
+    confirmed: false
+    file: ProMenu.h
+    returns:
+      selected:                 # ProMenu.h "allocates memory ... reuses the memory on subsequent calls" -> 静态复用
+        resource: WstringStaticArray   # 未登记 default_free 的描述键(borrowed 禁 free)
+        element: ProWstring
+        mode: borrowed
+  ProMoldbaseParamsGet:
+    confirmed: false
+    file: ProMoldbase.h
+    returns:
+      p_param_values:
+        resource: ProArray
+        element: ProName
+        mode: data
+  ProNoteAttachLeadersGet:
+    confirmed: false
+    file: ProNote.h
+    returns:
+      endpoints:
+        resource: ProSelection
+        element: ProSelection
+        array_free: ProSelectionarrayFree
+        mode: live
+  ProNoteTextGet:
+    confirmed: false
+    file: ProNote.h
+    returns:
+      p_note_text:
+        resource: ProWstringProarray
+        element: ProWstring
+        mode: data
+  ProNoteTextSet:
+    confirmed: false
+    file: ProNote.h
+    returns:
+      p_note_text:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProNoteURLWstringGet:
+    confirmed: false
+    file: ProNote.h
+    returns:
+      r_url:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProParameterDescriptionGet:
+    confirmed: false
+    file: ProParameter.h
+    returns:
+      description:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProParameterIsEnumerated:
+    confirmed: false
+    file: ProParameter.h
+    returns:
+      valid_values:
+        resource: ProArray
+        element: ProParamvalue
+        mode: data
+  ProParameterSelect:
+    confirmed: false
+    file: ProParameter.h
+    returns:
+      multi_parameters:
+        resource: ProArray
+        element: ProParameter
+        mode: data
+  ProPartMaterialsGet:
+    confirmed: false
+    file: ProMaterial.h
+    returns:
+      p_matl_names_arr:
+        resource: ProArray
+        element: ProName
+        mode: data
+  ProReferencearrayToSelections:
+    confirmed: false
+    file: ProReference.h
+    returns:
+      selections:
+        resource: ProSelection
+        element: ProSelection
+        array_free: ProSelectionarrayFree
+        mode: live
+  ProRelsetConstraintsGet:
+    confirmed: false
+    file: ProRelSet.h
+    returns:
+      constraints:                # 头文件仅写 ProArray of constraints, free 按同族 ProRelsetRelationsGet 推断
+        resource: ProWstringProarray
+        element: ProWstring
+        mode: data
+  ProRelsetRelationsGet:
+    confirmed: false
+    file: ProRelSet.h
+    returns:
+      p_line_array:
+        resource: ProWstringProarray
+        element: ProWstring
+        mode: data
+  ProRmdtImmInfoGet:
+    confirmed: false
+    file: ProRmdt.h
+    returns:
+      # ProRmdt.h Purpose "The function reuses the memory" -> 全部出参 borrowed(调用方禁 free)
+      p_machine_name:
+        resource: WstringStatic        # 未登记 default_free 的描述键(borrowed 禁 free)
+        element: ProWstring
+        mode: borrowed
+      p_param_names:
+        resource: StringStaticArray
+        element: ProString
+        mode: borrowed
+      p_param_values:
+        resource: WstringStaticArray
+        element: ProWstring
+        mode: borrowed
+  ProRmdtMaterialInfoGet:
+    confirmed: false
+    file: ProRmdt.h
+    returns:
+      # ProRmdt.h Purpose "The function reuses memory" -> 出参 borrowed(调用方禁 free)
+      p_param_names:
+        resource: StringStaticArray
+        element: ProString
+        mode: borrowed
+      p_param_values:
+        resource: WstringStaticArray
+        element: ProWstring
+        mode: borrowed
+  ProRmdtMoldBaseInfoGet:
+    confirmed: false
+    file: ProRmdt.h
+    returns:
+      # ProRmdt.h Purpose "The function reuses memory" -> 出参 borrowed(调用方禁 free)
+      p_param_names:
+        resource: StringStaticArray
+        element: ProString
+        mode: borrowed
+      p_param_values:
+        resource: WstringStaticArray
+        element: ProWstring
+        mode: borrowed
+  ProSelbufferSelectionsGet:
+    confirmed: false
+    file: ProSelbuffer.h
+    returns:
+      ret_buff:
+        resource: ProSelection
+        element: ProSelection
+        array_free: ProSelectionarrayFree
+        mode: live
+  # heap-out ProArray-of-fixedlen-array 多维基元子类(2026-07-05)
+  ProSeldatSelboxesGet:
+    confirmed: true
+    file: ProExtobjSel.h
+    returns:
+      p_selbox_arr:
+        resource: ProArray
+        element: ProSelbox             # `double[2][3]`;ProExtobjSel.h:78 "Use ProArrayFree() to free the allocated memory"
+        mode: data
+  ProSelectionarrayToReferences:
+    confirmed: false
+    file: ProReference.h
+    returns:
+      references:
+        resource: ProReference
+        element: ProReference
+        array_free: ProReferencearrayFree
+        mode: live
+  ProServerActiveGet:
+    confirmed: false
+    file: ProWTUtils.h
+    returns:
+      alias:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProServerAliasGet:
+    confirmed: false
+    file: ProWTUtils.h
+    returns:
+      alias:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProServerAliasedURLToModelName:
+    confirmed: false
+    file: ProWTUtils.h
+    returns:
+      alias:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+      model_name:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProServerAliasedURLToURL:
+    confirmed: false
+    file: ProWTUtils.h
+    returns:
+      url:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProServerClassGet:
+    confirmed: false
+    file: ProWTUtils.h
+    returns:
+      server_class:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProServerContextGet:
+    confirmed: false
+    file: ProWTUtils.h
+    returns:
+      context:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProServerContextsCollect:
+    confirmed: false
+    file: ProWTUtils.h
+    returns:
+      data:
+        resource: ProWstringProarray
+        element: ProWstring
+        mode: data
+  ProServerLocationGet:
+    confirmed: false
+    file: ProWTUtils.h
+    returns:
+      location:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProServerModelNameToAliasedURL:
+    confirmed: false
+    file: ProWTUtils.h
+    returns:
+      aliased_url:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProServerMultiobjectsCheckout:
+    confirmed: false
+    file: ProWTUtils.h
+    returns:
+      object_url:
+        resource: ProWstringProarray
+        element: ProWstring
+        mode: data
+  ProServerObjectsCheckout:
+    confirmed: false
+    file: ProWTUtils.h
+    returns:
+      object_url:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProServerObjectsRemove:
+    confirmed: false
+    file: ProWTUtils.h
+    returns:
+      model_names:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProServerRegister:
+    confirmed: false
+    file: ProWTUtils.h
+    returns:
+      aliased_url:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProServerVersionGet:
+    confirmed: false
+    file: ProWTUtils.h
+    returns:
+      server_version:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProServerWorkspaceGet:
+    confirmed: false
+    file: ProWTUtils.h
+    returns:
+      workspace:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProServercheckoutoptsIncludeinstancesSet:
+    confirmed: false
+    file: ProWTUtils.h
+    returns:
+      selected_includes:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProServerconflictsDescriptionGet:
+    confirmed: false
+    file: ProWTUtils.h
+    returns:
+      description:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProServersCollect:
+    confirmed: false
+    file: ProWTUtils.h
+    returns:
+      aliases:
+        resource: ProWstringProarray
+        element: ProWstring
+        mode: data
+  ProServerworkspacedataContextGet:
+    confirmed: false
+    file: ProWTUtils.h
+    returns:
+      context:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProServerworkspacedataNameGet:
+    confirmed: false
+    file: ProWTUtils.h
+    returns:
+      name:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProSetdatumtagAdditionalTextGet:
+    confirmed: false
+    file: ProSetDatumTag.h
+    returns:
+      lbl:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProSetdatumtagLabelGet:
+    confirmed: false
+    file: ProSetDatumTag.h
+    returns:
+      lbl:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  # heap-out ProArray-of-fixedlen-array
+  #   多维基元子类;ProKinDrag.h:325 明写 "call ProArrayFree() to free"。
+  ProSnapshotTrfsGet:
+    confirmed: true
+    file: ProKinDrag.h
+    returns:
+      path_arr:
+        resource: ProArray
+        element: ProAsmcomppath        # 头文件 Output "The array of ProAsmcomppath ... To free the memory, call ProArrayFree()"
+        mode: data
+      trf_arr:
+        resource: ProArray
+        element: ProMatrix             # `double[4][4]` 定长矩阵
+        mode: data
+  ProSolidNoteCreate:
+    confirmed: false
+    file: ProNote.h
+    returns:
+      p_note_text:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProSolidRayIntersectionCompute:
+    confirmed: false
+    file: ProSolid.h
+    returns:
+      p_sel_arr:
+        resource: ProSelection
+        element: ProSelection
+        array_free: ProSelectionarrayFree   # header ProSolid.h: function-allocated ProSelection array; ProSelectionarrayFree also frees each member
+        mode: live
+  ProSpoolsFromLogicalGet:
+    confirmed: false
+    file: ProCabling.h
+    returns:
+      p_w_name:
+        resource: ProArray
+        element: ProName
+        mode: data
+  ProSrfcollectionRegenerate:
+    confirmed: false
+    file: ProSrfcollection.h
+    returns:
+      r_result_sellist:
+        resource: ProSelection
+        element: ProSelection
+        array_free: ProSelectionarrayFree   # header ProSrfcollection.h:498 "ProArray of selections allocated by the function. Use ProSelectionarrayFree() to free"
+        mode: live
+  ProSurfacesCollect:
+    confirmed: false
+    file: ProCollect.h
+    returns:
+      sel_list:
+        resource: ProSelection
+        element: ProSelection
+        array_free: ProSelectionarrayFree
+        mode: live
+  ProSurffinishReferencesGet:
+    confirmed: false
+    file: ProSurfFinish.h
+    returns:
+      surface:
+        resource: ProSelection
+        element: ProSelection
+        array_free: ProSelectionarrayFree
+        mode: live
+  ProTextStyleFontGet:
+    confirmed: false
+    file: ProNote.h
+    returns:
+      font:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProTextStyleValidate:
+    confirmed: false
+    file: ProNote.h
+    returns:
+      error_message_lines:
+        resource: ProWstringArray
+        element: ProWstring
+        mode: data
+  ProUICascadebuttonHelptextGet:
+    confirmed: false
+    file: ProUICascadebutton.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUICascadebuttonTextGet:
+    confirmed: false
+    file: ProUICascadebutton.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUICheckbuttonHelptextGet:
+    confirmed: false
+    file: ProUICheckbutton.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUICheckbuttonTextGet:
+    confirmed: false
+    file: ProUICheckbutton.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIDialogTitleGet:
+    confirmed: false
+    file: ProUIDialog.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIDrawingareaHelptextGet:
+    confirmed: false
+    file: ProUIDrawingarea.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIDrawingareaStringsDraw:
+    confirmed: false
+    file: ProUIDrawingarea.h
+    returns:
+      strings:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIInputpanelHelptextGet:
+    confirmed: false
+    file: ProUIInputpanel.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIInputpanelValueGet:
+    confirmed: false
+    file: ProUIInputpanel.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIInputpanelWidestringGet:
+    confirmed: false
+    file: ProUIInputpanel.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUILabelHelptextGet:
+    confirmed: false
+    file: ProUILabel.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUILabelTextGet:
+    confirmed: false
+    file: ProUILabel.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUILayoutHelptextGet:
+    confirmed: false
+    file: ProUILayout.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUILayoutTextGet:
+    confirmed: false
+    file: ProUILayout.h
+    returns:
+      label:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIListColumnlabelGet:
+    confirmed: false
+    file: ProUIList.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIListHelptextGet:
+    confirmed: false
+    file: ProUIList.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIListItemhelptextGet:
+    confirmed: false
+    file: ProUIList.h
+    returns:
+      values:
+        resource: ProWstringCountedArray
+        element: ProWstring
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUIListItemhelptextSet:
+    confirmed: false
+    file: ProUIList.h
+    returns:
+      itemhelptext:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIListLabelsGet:
+    confirmed: false
+    file: ProUIList.h
+    returns:
+      values:
+        resource: ProWstringCountedArray
+        element: ProWstring
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUIListLabelsSet:
+    confirmed: false
+    file: ProUIList.h
+    returns:
+      labels:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIMenubarHelptextGet:
+    confirmed: false
+    file: ProUIMenubar.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIMenubarItemhelptextGet:
+    confirmed: false
+    file: ProUIMenubar.h
+    returns:
+      values:                # ProUIMenubar.h 文档原文 ProStringarrayFree(同族他控件均 ProWstringarrayFree, ABI 同形)
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUIMenubarItemhelptextSet:
+    confirmed: false
+    file: ProUIMenubar.h
+    returns:
+      values:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIMenupaneTextGet:
+    confirmed: false
+    file: ProUIMenupane.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIOptionmenuHelptextGet:
+    confirmed: false
+    file: ProUIOptionmenu.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIOptionmenuItemhelptextGet:
+    confirmed: false
+    file: ProUIOptionmenu.h
+    returns:
+      values:
+        resource: ProWstringCountedArray
+        element: ProWstring
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUIOptionmenuItemhelptextSet:
+    confirmed: false
+    file: ProUIOptionmenu.h
+    returns:
+      itemhelptext:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIOptionmenuLabelsGet:
+    confirmed: false
+    file: ProUIOptionmenu.h
+    returns:
+      values:
+        resource: ProWstringCountedArray
+        element: ProWstring
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUIOptionmenuLabelsSet:
+    confirmed: false
+    file: ProUIOptionmenu.h
+    returns:
+      labels:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIOptionmenuValueGet:
+    confirmed: false
+    file: ProUIOptionmenu.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIProgressbarHelptextGet:
+    confirmed: false
+    file: ProUIProgressbar.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIPushbuttonHelptextGet:
+    confirmed: false
+    file: ProUIPushbutton.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIPushbuttonTextGet:
+    confirmed: false
+    file: ProUIPushbutton.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIRadiogroupHelptextGet:
+    confirmed: false
+    file: ProUIRadiogroup.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIRadiogroupItemhelptextGet:
+    confirmed: false
+    file: ProUIRadiogroup.h
+    returns:
+      values:
+        resource: ProWstringCountedArray
+        element: ProWstring
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUIRadiogroupItemhelptextSet:
+    confirmed: false
+    file: ProUIRadiogroup.h
+    returns:
+      help_lines:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIRadiogroupLabelsGet:
+    confirmed: false
+    file: ProUIRadiogroup.h
+    returns:
+      values:
+        resource: ProWstringCountedArray
+        element: ProWstring
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUIRadiogroupLabelsSet:
+    confirmed: false
+    file: ProUIRadiogroup.h
+    returns:
+      labels:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUISliderHelptextGet:
+    confirmed: false
+    file: ProUISlider.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUISpinboxHelptextGet:
+    confirmed: false
+    file: ProUISpinbox.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITabHelptextGet:
+    confirmed: false
+    file: ProUITab.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITabItemHelptextStringGet:
+    confirmed: false
+    file: ProUITab.h
+    returns:
+      help_text:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITabItemLabelGet:
+    confirmed: false
+    file: ProUITab.h
+    returns:
+      label:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITabItemhelptextGet:
+    confirmed: false
+    file: ProUITab.h
+    returns:
+      values:
+        resource: ProWstringCountedArray
+        element: ProWstring
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUITabItemhelptextSet:
+    confirmed: false
+    file: ProUITab.h
+    returns:
+      itemhelptext:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITabLabelsGet:
+    confirmed: false
+    file: ProUITab.h
+    returns:
+      values:
+        resource: ProWstringCountedArray
+        element: ProWstring
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUITabLabelsSet:
+    confirmed: false
+    file: ProUITab.h
+    returns:
+      values:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITableCellHelptextStringGet:
+    confirmed: false
+    file: ProUITable.h
+    returns:
+      help_text:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITableCellLabelGet:
+    confirmed: false
+    file: ProUITable.h
+    returns:
+      label:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITableColumnLabelGet:
+    confirmed: false
+    file: ProUITable.h
+    returns:
+      label:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITableColumnlabelsGet:
+    confirmed: false
+    file: ProUITable.h
+    returns:
+      values:
+        resource: ProWstringCountedArray
+        element: ProWstring
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUITableColumnlabelsSet:
+    confirmed: false
+    file: ProUITable.h
+    returns:
+      values:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITableHelptextGet:
+    confirmed: false
+    file: ProUITable.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITableRowLabelGet:
+    confirmed: false
+    file: ProUITable.h
+    returns:
+      label:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITableRowlabelsGet:
+    confirmed: false
+    file: ProUITable.h
+    returns:
+      values:
+        resource: ProWstringCountedArray
+        element: ProWstring
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUITableRowlabelsSet:
+    confirmed: false
+    file: ProUITable.h
+    returns:
+      values:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITextareaHelptextGet:
+    confirmed: false
+    file: ProUITextarea.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITextareaValueGet:
+    confirmed: false
+    file: ProUITextarea.h
+    returns:
+      lines:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUIThumbwheelHelptextGet:
+    confirmed: false
+    file: ProUIThumbwheel.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITreeColumnTitleGet:
+    confirmed: false
+    file: ProUITree.h
+    returns:
+      title:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITreeHelptextGet:
+    confirmed: false
+    file: ProUITree.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITreeNodeHelptextGet:
+    confirmed: false
+    file: ProUITree.h
+    returns:
+      helptext:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITreeNodeLabelGet:
+    confirmed: false
+    file: ProUITree.h
+    returns:
+      label:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITreeNodeTypeAppendStringGet:
+    confirmed: false
+    file: ProUITree.h
+    returns:
+      append:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITreeNodeTypePrefixGet:
+    confirmed: false
+    file: ProUITree.h
+    returns:
+      prefix:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITreeTreecellinputGet:
+    confirmed: false
+    file: ProUITree.h
+    returns:
+      value:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITreeTreenodetypeappendsGet:
+    confirmed: false
+    file: ProUITree.h
+    returns:
+      values:
+        resource: ProWstringCountedArray
+        element: ProWstring
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUITreeTreenodetypeappendsSet:
+    confirmed: false
+    file: ProUITree.h
+    returns:
+      values:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITreeTreenodetypehelptextsGet:
+    confirmed: false
+    file: ProUITree.h
+    returns:
+      values:
+        resource: ProWstringCountedArray
+        element: ProWstring
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUITreeTreenodetypehelptextsSet:
+    confirmed: false
+    file: ProUITree.h
+    returns:
+      values:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUITreeTreenodetypeprefixesGet:
+    confirmed: false
+    file: ProUITree.h
+    returns:
+      values:
+        resource: ProWstringCountedArray
+        element: ProWstring
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUITreeTreenodetypeprefixesSet:
+    confirmed: false
+    file: ProUITree.h
+    returns:
+      values:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+  ProUdfdataInstancenamesGet:
+    confirmed: false
+    file: ProUdf.h
+    returns:
+      instance_names:
+        resource: ProArray
+        element: ProName
+        mode: data
+  ProValueArrayToWstringArray:
+    confirmed: false
+    file: ProValue.h
+    returns:
+      p_wstring_array:          # ProValue.h "Use ProArrayFree() to free"(仅外层 ProArray)
+        resource: ProArray
+        element: ProWstring
+        mode: data
+  ProViewNamesGet:
+    confirmed: false
+    file: ProView.h
+    returns:
+      view_names:
+        resource: ProArray
+        element: ProLine
+        mode: data
+      alternate_names:
+        resource: ProArray
+        element: ProLine
+        mode: data
+  ProViewNamesGetRWildfire2:
+    confirmed: false
+    file: ProViewRWildfire2.h
+    returns:
+      view_names:
+        resource: ProArray
+        element: ProName
+        mode: data
+      alternate_names:
+        resource: ProArray
+        element: ProName
+        mode: data
+  ProWindowURLGet:
+    confirmed: false
+    file: ProWindows.h
+    returns:
+      url:
+        resource: ProWstring
+        element: wchar_t
+        mode: data
+
+  # ===== out-ProArray-of-string 契约(头文件 Input/Output+free 文档逐一核实;
+  #       ProStringarrayFree/ProWstringarrayFree 需元素数, 见 free_context) =====
+  ProUICascadebuttonChildnamesGet:
+    confirmed: false
+    file: ProUICascadebutton.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUIDialogChildnamesGet:
+    confirmed: false
+    file: ProUIDialog.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUIDialogComponentsCollect:
+    confirmed: false
+    file: ProUIDialog.h
+    returns:
+      component_array:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUIDrawingareaChildnamesGet:
+    confirmed: false
+    file: ProUIDrawingarea.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUIDrawingareaImagesGet:
+    confirmed: false
+    file: ProUIDrawingarea.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUILayoutChildnamesGet:
+    confirmed: false
+    file: ProUILayout.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUIListItemimageGet:
+    confirmed: false
+    file: ProUIList.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUIListNamesGet:
+    confirmed: false
+    file: ProUIList.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUIListSelectednamesGet:
+    confirmed: false
+    file: ProUIList.h
+    returns:
+      selections:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [n_selections]   # free 需元素数(同函数 count 出参)
+  ProUIMenubarNamesGet:
+    confirmed: false
+    file: ProUIMenubar.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUIMenubarSelectablenamesGet:
+    confirmed: false
+    file: ProUIMenubar.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUIMenubarVisiblenamesGet:
+    confirmed: false
+    file: ProUIMenubar.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUIMenupaneChildnamesGet:
+    confirmed: false
+    file: ProUIMenupane.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUIOptionmenuItemimageGet:
+    confirmed: false
+    file: ProUIOptionmenu.h
+    returns:
+      values:                # 头文件未写 free, 按同族 ItemimageGet 推断
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUIOptionmenuNamesGet:
+    confirmed: false
+    file: ProUIOptionmenu.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUIOptionmenuSelectednamesGet:
+    confirmed: false
+    file: ProUIOptionmenu.h
+    returns:
+      selections:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [n_selections]   # free 需元素数(同函数 count 出参)
+  ProUIRadiogroupItemimageGet:
+    confirmed: false
+    file: ProUIRadiogroup.h
+    returns:
+      values:                # 头文件未写 free, 按同族 ItemimageGet 推断
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUIRadiogroupNamesGet:
+    confirmed: false
+    file: ProUIRadiogroup.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUIRadiogroupSelectednamesGet:
+    confirmed: false
+    file: ProUIRadiogroup.h
+    returns:
+      names:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [n_name]   # free 需元素数(同函数 count 出参)
+  ProUITabSelectednamesGet:
+    confirmed: false
+    file: ProUITab.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUITableChildnamesGet:
+    confirmed: false
+    file: ProUITable.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUITableColumnnamesGet:
+    confirmed: false
+    file: ProUITable.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUITableRownamesGet:
+    confirmed: false
+    file: ProUITable.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUITableSelectedcolumnnamesGet:
+    confirmed: false
+    file: ProUITable.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUITableSelectednamesGet:
+    confirmed: false
+    file: ProUITable.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUITableSelectedrownamesGet:
+    confirmed: false
+    file: ProUITable.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUITreeChildnamesGet:
+    confirmed: false
+    file: ProUITree.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUITreeNodeChildrenGet:
+    confirmed: false
+    file: ProUITree.h
+    returns:
+      children:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUITreeNodeTypeNodesGet:
+    confirmed: false
+    file: ProUITree.h
+    returns:
+      array_nodes:                # 头文件未写 free, 按同族推断
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [num_nodes]   # free 需元素数(同函数 count 出参)
+  ProUITreeNodesOfTypeGet:
+    confirmed: false
+    file: ProUITree.h
+    returns:
+      nodes:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUITreeSelectednamesGet:
+    confirmed: false
+    file: ProUITree.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUITreeTreecolumnorderGet:
+    confirmed: false
+    file: ProUITree.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUITreeTreenodetypecollapsedimagesGet:
+    confirmed: false
+    file: ProUITree.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUITreeTreenodetypeexpandedimagesGet:
+    confirmed: false
+    file: ProUITree.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+  ProUITreeTreenodetypenamesGet:
+    confirmed: false
+    file: ProUITree.h
+    returns:
+      values:
+        resource: ProStringCountedArray
+        element: ProString
+        mode: data
+        free_context: [count]   # free 需元素数(同函数 count 出参)
+
+# Fixed char/wchar buffer direction overrides for review-v2 #2.
+# Schema: mode in {in_string_ascii,in_string_wide,out_buffer_ascii,out_buffer_wide}; size required for out_buffer_*.
+fixed_buffers:
+  ProCmdDesignate:
+    button_label: { mode: in_string_ascii }
+    one_line_help: { mode: in_string_ascii }
+    description: { mode: in_string_ascii }
+    msg_file: { mode: in_string_wide }
+  ProRibbonDefinitionfileLoad:
+    file_name: { mode: in_string_wide }
+  ProMenubarMenuAdd:
+    menu_name: { mode: in_string_ascii }
+    untranslated_menu_label: { mode: in_string_ascii }
+    neighbor: { mode: in_string_ascii }
+    filename: { mode: in_string_wide }
+  ProMenubarmenuPushbuttonAdd:
+    parent_menu: { mode: in_string_ascii }
+    push_button_name: { mode: in_string_ascii }
+    push_button_label: { mode: in_string_ascii }
+    one_line_help: { mode: in_string_ascii }
+    neighbor: { mode: in_string_ascii }
+    filename: { mode: in_string_wide }
+  ProMenubarmenuMenuAdd:
+    parent_menu: { mode: in_string_ascii }
+    menu_name: { mode: in_string_ascii }
+    menu_label: { mode: in_string_ascii }
+    neighbor: { mode: in_string_ascii }
+    filename: { mode: in_string_wide }
+  ProMenubarmenuChkbuttonAdd:
+    parent_menu: { mode: in_string_ascii }
+    check_button_name: { mode: in_string_ascii }
+    check_button_label: { mode: in_string_ascii }
+    one_line_help: { mode: in_string_ascii }
+    neighbor: { mode: in_string_ascii }
+    filename: { mode: in_string_wide }
+  ProCmdOptionAdd:
+    option_name: { mode: in_string_ascii }
+  ProCmdIconSet:
+    cmd_icon: { mode: in_string_ascii }
+  ProCmdCmdIdFind:
+    cmd_name: { mode: in_string_ascii }
+  ProMenubarMenuRadiogrpValueGet:
+    selected_item: { mode: out_buffer_ascii, size: 32 }
+  ProMenubarMenuRadiogrpValueSet:
+    selected_item: { mode: in_string_ascii }
+  ProPopupmenuIdGet:
+    name: { mode: in_string_ascii }
+  ProPopupmenuButtonAdd:
+    button_name: { mode: in_string_ascii }
+    button_label: { mode: in_string_wide }
+    button_helptext: { mode: in_string_wide }
+
+# 指针出参方向覆盖真源。value in {ref, out, in};优先于生成器命名启发式(Free→ref/余 out)。
+# 用于"读入现有指针、可能 realloc 后写回"的形态:命名启发式误判为 out 会让 native 解引用
+# 未初始化指针 → 崩。引用不存在的函数/参数名 gen_bindings.py 会 fail-fast 报错。
+# in = 传值实参(OHandle/ProArray 实参本身,平传 IntPtr 无修饰,可传 IntPtr.Zero 表 NULL)。
+#   用于 ProArray-of-handle 输入(形态 `ProXxx *arr` 其中值本身就是数组基指针):out/ref 都会
+#   让 CLR 多传一层指针(层级+1)且 out 语义下 native 读到未初始化槽 → 崩;in 才是正确 ABI。
+#   与单句柄输入(ref,见缺口4)的区分:头文件文档写 "A ProArray of ..." → in;写单个
+#   handle/pointer → ref。
+# ProArray 写族(ProArray.h):p_array 传入现有数组地址,函数可能 realloc 后写回 → 必须 ref。
+#   (ProArrayAlloc 的 p_array 是纯输出 producer,保持 out;ProArrayFree 由 Free 命名规约已得 ref。)
+param_direction:
+  ProArraySizeSet:
+    p_array: ref
+  ProArrayObjectAdd:
+    p_array: ref
+  ProArrayObjectRemove:
+    p_array: ref
+  # 单句柄输入(缺口4):形态 `ProXxx *p`(指向单个句柄的指针)是纯输入,被 depth==2 out-handle
+  #   启发式误判为 `out IntPtr`(native 读入参却拿到未初始化槽 → 未定义行为)。判据:全 IR
+  #   depth==2 命中 out-handle 启发式 → 头文件 Input Arguments 段列名且 Output 段不列 →
+  #   非 *Free/*Alloc → 非数组(区别于 param_input_array)→ 单句柄输入。改 ref:调用方传有效句柄地址,
+  #   native 只读不写回。逐个按头文件核对(状态梳理已闭环删除,原文见 git 历史 generator-marshalling-status.md 真缺口4)。
+  #   注:ProClcmdElemGetByIndex.r_ncl_cmd_elem 虽列 Input 段但 Purpose 是 "Gets the pointer to"
+  #   实为出参(头文件 doc 自误),保持 out 不登记。
+  ProSelectionViewSet:
+    p_prosel: ref              # ProSelection.h "pointer to user-provided ProSelection"
+  ProSelectionPoint3dSet:
+    p_prosel: ref              # ProSelection.h "Pointer to user-provided ProSelection"
+  ProSelectionDtlsyminstEntityGet:
+    selection: ref             # ProDtlsyminst.h Input "Selection of the entity"(从 selection 取 entity)
+  ProCablingIsHarness:
+    p_mdl: ref                 # ProCabling.h Input "The model handle"
+  ProSecerrorAdd:
+    PUserErr: ref              # ProSecerror.h Input "pointer to the errors table"(caller 经 ProSecerrorAlloc 初始化)
+  ProSecerrorCount:
+    PUserErr: ref              # ProSecerror.h Input "A pointer to the errors table"
+  ProNoteAttachRelease:
+    p_note_att: ref            # ProNote.h Input "pointer to the handle"(释放语义,native 读句柄后置空)
+  ProDispObjectDelete:
+    obj: ref                   # ProDispObject.h Input "ProDisplayObject which will be deleted"
+  ProClcmdElemRemove:
+    r_ncl_cmd_elem: ref        # ProClcmdElem.h Input "The element to remove"(Purpose "given its data" 与 Input 一致)
+  # ProArray-of-handle 输入(in):值本身是数组基指针,平传 IntPtr,可传 Zero。判据:头文件
+  #   Input Arguments 段明写 "A ProArray of ..." 且 Output 段不列;逐个按头文件核对。
+  ProSelect:
+    p_in_sel: in               # ProSelection.h Input "A ProArray of pointers to ProSelection ... This can be NULL"
+  ProReferencearrayToSelections:
+    references: in             # ProReference.h Input "The ProArray of reference handles"
+  ProSelectionarrayToReferences:
+    selections: in             # ProReference.h Input "ProArray of selection handles"
+  ProAsmcompConstraintsSet:
+    p_constraints: in          # ProAsmcomp.h Input "ProArray of constraints"; INVALID_PTR 校验 ProArray 头,须平传句柄本体
+  # 单句柄输入(缺口4 续,D15/D16 新放行函数首曝):
+  ProCurvesCollect:
+    collection: ref            # ProCollect.h Input "must be allocated by calling ProCrvcollectionAlloc()"(caller 预分配,函数向对象内追加)
+  ProGtolleaderZExtensionlineGet:
+    leader: ref                # ProGtol.h Input "gtol leader"(单句柄输入,native 只读)
+  # ProWstring 写族(ProWstring.h):p_array 传入现有数组地址,可能 realloc 后写回 → ref
+  #   (同 ProArray 写族先例;ProWstringArrayFree 由 Free 命名规约已得 ref)。
+  ProWstringArrayObjectAdd:
+    p_array: ref               # ProWstring.h Input "The address of the array"
+  ProWstringArrayObjectRemove:
+    p_array: ref               # ProWstring.h Input "The address of the array"
+  ProWstringArraySizeSet:
+    p_array: ref               # ProWstring.h Input "The address of the array whose size should be changed"
+  # ProArray-of-wstring 输入(in):
+  ProServerMultiobjectsCheckout:
+    files: in                  # ProWTUtils.h Input "ProArray of top level objects"(值即 ProArray 基指针)
+  # ProArray-of-handle 输入(in):
+  ProQuiltdataSurfArraySet:
+    arr_p_surf: in             # ProQuiltdata.h Input "The ProArray of pointers to surfaces of the quilt"
+  # ProArray 输入(in):头文件 Input 段明写 "ProArray of ..." 或 Purpose 写 "proarray",
+  #   native 按 ProArray 布局(header+元素区)解读,[In] IntPtr[] 封送裸元素区无头 → 平传 IntPtr。
+  ProAnnotationelemArrayReferencesSet:
+    reference_set: in          # ProAnnotationElem.h "ProArray of annotation reference sets"
+  ProAnnotationfeatElementArrayDelete:
+    elements: in               # ProAnnotationFeat.h "ProArray of the annotation elements"
+  ProCablelocationrefAlloc:
+    refs: in                   # ProCabling.h "ProArray of ProSelections"
+  ProCurrentWorkspaceExport:
+    source_objects: in         # ProWorkspace.h "ProArray of names of objects"
+  ProCurrentWorkspaceImport:
+    source_objects: in         # ProWorkspace.h "ProArray of paths to objects"
+  ProDimensionAutoOrdinateCreate:
+    surface_array: in          # ProDimension.h "must be a ProArray of ProSelection"
+  # ProDimAttachment(=ProSelection[2])与 ProDimSense 数组输入:头文件 Input 段明写 "ProArray of
+  #   attachments/dsense"; ProArraySizeGet 从 header 负偏移取长度,pin 的 C# 数组无 header 会崩,
+  #   须平传 ProArray 句柄(caller L3 用 ProArrayAlloc/ObjectAdd 构造)。三函数同款处置。
+  ProDimensionCreate:
+    attachments_arr: in        # ProDimension.h "ProArray of attachments"
+    dsense_arr: in             # ProDimension.h "ProArray of dimension sense"
+  ProDimensionAttachmentsSet:
+    attachments_arr: in        # ProDimension.h "ProArray of attachments"
+    dsense_arr: in             # ProDimension.h "ProArray of dimension sense"
+  # strip_size:头文件明写 ProArray → 依 07-04 ProArray 政策平传 IntPtr(句柄本体,负偏移 header
+  #   存长度,CLR 数组 pin 无 header → INVALID_PTR,A-1 真机先例)。tkuse 25008 二轨佐证。
+  ProDispObjectCreate:
+    strip_size: in             # ProDispObject.h:51 Input "ProArray (of size num_strips) indicating the number of triangles in each strip"
+  # DEPRECATED Since Creo 4.0(depr_map 66);SUCCESSOR=ProDrawingDimensionCreate(其 attachment_arr/
+  #   dsense_arr 同为平传 IntPtr,生成物互证)。shape 依 07-04 ProArray 政策平传 IntPtr,deprecated 不入 SDK 表面。
+  ProDrawingDimCreate:
+    attachments_arr: in        # ProDrawing.h:610 Input "ProArray of attachments"
+    dsense_arr: in             # ProDrawing.h:611 Input "ProArray of sense"
+  ProDrawingDimensionCreate:
+    attachment_arr: in         # ProDrawing.h "ProArray of Attachments"(注意参数名单数)
+    dsense_arr: in             # ProDrawing.h "ProArray of sense"
+  # ProDrawingOrdinateDimensionsCreate / ProDimattachmentarrayFree:D16 struct-pointer 扩容后
+  #   (2026-07-05)首次可 A 类放行;沿用同族 ProArray 语义登记覆盖以修正 mapper 默认启发式产出的
+  #   `ref pro_dim_sense` / `ref pro_model_item` / 无 ref 修饰的 Free 参数等错签名。
+  ProDrawingOrdinateDimensionsCreate:
+    attachment_array: in       # ProDimension.h "ProArray of dimension attachments"
+    sense_array: in            # ProDimension.h "ProArray of dimension sense"
+    dim_array: out             # ProDimension.h Output "ProArray of created dimension. Free using ProArrayFree()"
+                               # 头文件形态 depth=1(`ProDimension* dim_array`,缺 `*`)但语义 heap-out;
+                               # x64 上 void*/void** 同宽度不影响 out IntPtr 生成,以 Output 段 Free 契约为真源。
+  ProGtolAttachMakeDimSet:
+    attachments_arr: in        # ProGtolAttach.h Input "ProArray of pair of selections"
+    dsense_arr: in             # ProGtolAttach.h Input "ProArray of dimension sense"
+  # 按值传数组基指针:ProDimension.h:174 `typedef ProSelection ProDimAttachment[2]`,
+  # :1680 形参 `ProDimAttachment *attachments_arr` 按值;官方样例 TestDimension.c:793
+  # `ProDimattachmentarrayFree(sel_arr)` 直接按值,与紧邻的 `ProArrayFree((ProArray*)&sense_arr)`
+  # 取地址形成铁证对照。ownership.yml 早期 `ref` 是启发式误覆盖,generator 默认已能推正确。
+  ProDimattachmentarrayFree:
+    attachments_arr: in
+  # 按值传数组基指针:ProSelection.h:263 `ProError ProSelectionarrayFree(ProSelection *sel_array)`,
+  # 官方样例 PTAEToChamfer.c 及全 protk_appls 均按值调用,无取地址先例。
+  ProSelectionarrayFree:
+    sel_array: in
+  # 方向 unconfirmed:官方样例自相矛盾——UtilTree.c:1007 取地址 vs UgSmtFlgWallCreate.c:631 按值;
+  # 真机裁决前禁改现有登记 (若目前无登记则维持 generator 默认 `ref`,与旧行为一致);
+  # 消费侧 (Bridge/ProArrayScope OwnedCustom) 保持按值调用与取地址两种委托并存,以真机门 G2/G3 验。
+  # ProReferencearrayFree:
+  #   references: in|ref  # 待定,详见 interop-manifest/unconfirmed.md §D
+  ProDimensionTextWstringsSet:
+    text: in                   # ProDimension.h "ProArray of wstrings"
+  ProDtlnotedataLeadersSet:
+    leaders: in                # ProDtlnote.h "ProArray of leaders"
+  ProDtlnoteldataLinesSet:
+    line: in                   # ProDtlnote.h "ProArray of the text lines"
+  ProDtlnotelineTextsSet:
+    texts: in                  # ProDtlnote.h "ProArray of text handles"
+  ProDtlsymdefdataAttachSet:
+    attaches: in               # ProDtlsymdef.h "ProArray of symbol definition attachments"
+  ProDtlsyminstdataLeadersSet:
+    leaders: in                # ProDtlsyminst.h "ProArray of ProDtlattach"
+  ProDtlsyminstdataVartextsSet:
+    vartexts: in               # ProDtlsyminst.h "ProArray of ProDtlvartext"
+  # ProDwgtabledataColumnsSet.widths/justifications 与 ProDwgtabledataRowsSet.heights
+  # 迁至 param_input_array(in_scalar_array/in_enum_array),不再走 param_direction:in 平传 IntPtr。
+  ProDwgtableTextEnter:
+    lines: in                  # ProDwgtable.h "ProArray of text lines"
+  ProElementArraySet:
+    array_elems: in            # ProElement.h "create using ProArrayAlloc()"
+  ProElementReferencesSet:
+    references: in             # ProElement.h "references ProArray"
+  ProExtRefBreakDependency:
+    ext_ref_arr: in            # ProRefInfo.h Purpose "proarray of references"
+  ProExtRefDependencyIsBreakable:
+    ext_ref_arr: in            # ProRefInfo.h takes ProArray from ProSolidExternParentsGet
+  ProFeatureReferenceEdit:
+    old_ref_arr: in            # ProFeature.h "ProArray containing Old References"
+    new_ref_arr: in            # ProFeature.h "ProArray containing New References"
+  # DEPRECATED Since Creo 4.0(depr_map 109);SUCCESSOR=ProFeatureSketchedWithOptionsCreate(下条,
+  #   同参数同为平传 IntPtr,生成物互证)。shape 依 07-04 ProArray 政策平传 IntPtr,deprecated 不入 SDK 表面。
+  ProFeatureSketchedCreate:
+    sketch_array: in           # ProFeature.h:2705 Input "ProArray of selections of sketch datum curves"
+  ProFeatureSketchedWithOptionsCreate:
+    sketch_array: in           # ProFeature.h "ProArray of selections of sketch datum curves"
+  ProGtolAttachLeadersSet:
+    leaders: in                # ProGtolAttach.h "ProArray of ProGtolleader"
+  # DEPRECATED Since Creo 4.0(depr_map 126);SUCCESSOR=ProGtolAttachSet。shape 依 07-04 ProArray
+  #   政策平传 IntPtr,deprecated 不入 SDK 表面。
+  ProGtoldataPlacementSet:
+    leaders: in                # ProGtol.h:703 Input "ProArray of leader structures"
+  ProGtolIndicatorsSet:
+    dfs: in                    # ProGtol.h "ProArray() of dfs strings"
+    symbols: in                # ProGtol.h "ProArray() of indicator symbols strings"
+  ProMechbeamReferencesSet:
+    references: in             # ProMechBeam.h "ProArray of beam entities"
+  ProMechbeamdataSidesSet:
+    sides: in                  # ProMechBeam.h "ProArray of beam sides"
+  ProMechconstrReferencesSet:
+    geomrefs: in               # ProMechConstraint.h "ProArray of constraint geomrefs"
+  ProMechdirvectorComponentsSet:
+    value: in                  # ProMechValue.h "ProArray of component values"
+  ProMechdisplacementdataRotationconstrsSet:
+    value: in                  # ProMechConstraint.h "ProArray of rotation options"
+  ProMechdisplacementdataTranslationconstrsSet:
+    value: in                  # ProMechConstraint.h "ProArray of translation options"
+  ProMechfuncdataFunctableSet:
+    value: in                  # ProMechFunction.h "ProArray of table entries"
+  ProMechgapReferencesSet:
+    references: in             # ProMechGap.h "ProArray of references"
+  ProMechinterfaceReferencesSet:
+    references: in             # ProMechInterface.h "ProArray of references"
+  ProMechloadReferencesSet:
+    geomrefs: in               # ProMechLoad.h "ProArray of load geomrefs"
+  ProMechmassReferencesSet:
+    references: in             # ProMechMass.h "ProArray of reference objects"
+  ProMechmaterialorientprojPointsSet:
+    points: in                 # ProMechMaterialOrient.h "ProArray of points"
+  ProMechmatlassignReferencesSet:
+    references: in             # ProMechMaterialAssign.h "ProArray of references"
+  ProMechmcautogemminedgeEdgesSet:
+    edges: in                  # ProMechMeshControl.h "ProArray of edges"
+  ProMechmeshcntrlReferencesSet:
+    references: in             # ProMechMeshControl.h "ProArray of references"
+  ProMechmodeldataEntitiesSet:
+    entities: in               # ProMechGeometry.h "ProArray of geometric entities"
+  ProMechshellReferencesSet:
+    references: in             # ProMechShell.h "ProArray of references"
+  ProMechshlpairrefsBottomreferencesSet:
+    bottom_refs: in            # ProMechShellPair.h "ProArray of bottomside references"
+  ProMechshlpairrefsTopreferencesSet:
+    top_refs: in               # ProMechShellPair.h "ProArray of topside references"
+  ProMechshlproplaminatelayupLayersSet:
+    layers: in                 # ProMechShellProps.h "ProArray of layers"
+  ProMechshlproplaminatestiffAppliedstressSet:
+    strcalc_data: in           # ProMechShellProps.h "ProArray of applied stress calculations"
+  ProMechspringReferencesSet:
+    references: in             # ProMechSpring.h "ProArray of reference objects"
+  ProMechsymmetrydataSide1Set:
+    geomrefs: in               # ProMechConstraint.h "ProArray of references"
+  ProMechsymmetrydataSide2Set:
+    geomrefs: in               # ProMechConstraint.h "ProArray of references"
+  ProMechvariationInterpolationSet:
+    interpolation: in          # ProMechValue.h "ProArray of interpolation points"
+  ProMechvectoredvaluePointsSet:
+    points: in                 # ProMechValue.h "ProArray of points"
+  ProMechweldReferencesSet:
+    references: in             # ProMechWeld.h "ProArray of references"
+  ProMechweldperimeterEdgesSet:
+    edges: in                  # ProMechWeld.h "ProArray of edges"
+  ProMechweldspotPntsSet:
+    references: in             # ProMechWeld.h "ProArray of points"
+  ProNoteTextSet:
+    p_note_text: in            # ProNote.h "ProArray of wide strings"
+  ProServerObjectsRemove:
+    model_names: in            # ProWTUtils.h "ProArray of model names"
+  ProServercheckoutoptsIncludeinstancesSet:
+    selected_includes: in      # ProWTUtils.h "ProArray of URLs"
+  ProShrinkwrapoptionsAdditionalcomponentsSet:
+    additional_components: in  # ProShrinkwrap.h "ProArray of additional component selections"
+  ProShrinkwrapoptionsAdditionalsurfacesSet:
+    additional_surfaces: in    # ProShrinkwrap.h "ProArray of surface selections"
+  ProShrinkwrapoptionsDatumrefsSet:
+    datum_refs: in             # ProShrinkwrap.h "ProArray of Datum references"
+  ProSolidNoteCreate:
+    p_note_text: in            # ProNote.h "ProArray of note text lines"
+  ProVariantfeatVariantrefsSet:
+    variant_refs: in           # ProVariantFeat.h "ProArray of variant reference assignments"
+
+  # 字符串数组 free 函数(ProUtil.h):数组按值传入(值即数组基指针),Free 命名规约误得 ref
+  #   (层级+1,native 释放到错误地址)→ 必须 in。
+  ProWstringproarrayFree:
+    wstr_arr: in               # ProUtil.h Input "The array of wide-strings"
+  ProWstringarrayFree:
+    wstr_arr: in               # ProUtil.h Input "The array of wide-strings"(另带 ct)
+  ProStringarrayFree:
+    str_arr: in                # ProUtil.h Input "The array of strings"(另带 ct)
+  ProStringproarrayFree:
+    str_arr: in                # ProUtil.h Input "The array of strings"(ProArray 形态,按值收数组)
+  ProElemdiagnosticProarrayFree:
+    diag_array: in             # ProElement.h "Frees an array ... returned from ProElementDiagnosticsCollect"(按值收数组)
+  # 输入 ProArray of enum(值即数组基指针,枚举指针启发式误得 out enum → 平传 IntPtr):
+  ProFeatureWithoptionsCreate:
+    options: in                # ProFeature.h Input "A ProArray array of user options"
+  ProFeatureWithoptionsRedefine:
+    options: in                # ProFeature.h Input "A ProArray of user options"
+
+# 输入数组标注真源。value in {in_ptr_array};优先于生成器 out-wstring/out-handle/out-ascii 启发式。
+# 背景:形态 `ProWstring*`/`wchar_t**`/`char**`/`Handle**` 的输入数组(元素皆指针大小)被
+#   depth==2 out 启发式误判为 `out IntPtr`(native 会写入未初始化槽 → 语义错/崩)。以头文件
+#   Input/Output Arguments 注释 + 参数描述(array/ProArray/count 伴随)逐个核对得本清单
+#   (全为 A 类可直绑、INPUT-ONLY 的数组、非 *Free、非 *Alloc 生产者、非单句柄输入)。正确编组
+#   `[In] IntPtr[]`:调用方构造指针数组、运行时钉住传首址;单元素与多元素 ABI 等价,数组可为 null
+#   (如 ProGtolIndicatorsSet 明示 can be NULL)。引用不存在/未生成/非目标形态的参数 gen_bindings.py fail-fast。
+param_input_array:
+  ProAsynchronousMain:
+    argv: in_ptr_array
+  ProClcmdElemCreate:
+    commd_lines: in_ptr_array
+  ProClcmdElemGet:
+    commd_lines: in_ptr_array
+  ProClcmdElemRemove:
+    commd_lines: in_ptr_array
+  ProClcmdElemSet:
+    commd_lines: in_ptr_array
+  ProCompoundmenuCreate:
+    menus: in_ptr_array
+  ProDispObjectCreate:
+    strips_array: in_ptr_array   # ProDispObject.h:53 Input "An array of num_strips triangle strips"(ProTriVertex** 输入数组;Creo4 头文件无 ProArray 字样,tkuse 25011 有矛盾表述,以头文件为准,待真机裁决)
+  ProDwgtabledataColumnsSet:
+    widths: {kind: in_scalar_array, size_param: n_columns}
+    justifications: {kind: in_enum_array, size_param: n_columns}
+  ProDwgtabledataRowsSet:
+    heights: {kind: in_scalar_array, size_param: n_rows}
+  ProElementChildrenSet:
+    child_elems: in_ptr_array
+  ProMenuStringsSelect:
+    strings: in_ptr_array    # ProMenu.h Input "A list of wide strings ... terminated by an empty string"
+    help: in_ptr_array       # ProMenu.h Input "A list of wide strings defining the one-line help"
+  ProRelsetRelationsSet:
+    line_array: in_ptr_array
+  ProSectionConstraintCreate:
+    ref_ent: in_ptr_array
+  ProToolkitMain:
+    argv: in_ptr_array             # ProCore.h Input "You cannot modify this argument"(char** 输入数组，同 ProAsynchronousMain)
+  ProUICascadebuttonChildnamesSet:
+    values: in_ptr_array
+  ProUIDrawingareaImagesDraw:
+    images: in_ptr_array
+  ProUIDrawingareaImagesSet:
+    values: in_ptr_array
+  ProUIDrawingareaStringsDraw:
+    strings: in_ptr_array
+  ProUIListItemhelptextSet:
+    itemhelptext: in_ptr_array
+  ProUIListItemimageSet:
+    values: in_ptr_array
+  ProUIListLabelsSet:
+    labels: in_ptr_array
+  ProUIListNamesSet:
+    names: in_ptr_array
+  ProUIListSelectednamesSet:
+    selections: in_ptr_array
+  ProUIMenubarItemhelptextSet:
+    values: in_ptr_array
+  ProUIMenubarNamesSet:
+    values: in_ptr_array
+  ProUIMenubarSelectablenamesSet:
+    values: in_ptr_array
+  ProUIMenubarVisiblenamesSet:
+    values: in_ptr_array
+  ProUIOptionmenuItemhelptextSet:
+    itemhelptext: in_ptr_array
+  ProUIOptionmenuItemimageSet:
+    values: in_ptr_array
+  ProUIOptionmenuLabelsSet:
+    labels: in_ptr_array
+  ProUIOptionmenuNamesSet:
+    names: in_ptr_array
+  ProUIOptionmenuSelectednamesSet:
+    selections: in_ptr_array
+  ProUIRadiogroupItemhelptextSet:
+    help_lines: in_ptr_array
+  ProUIRadiogroupItemimageSet:
+    values: in_ptr_array
+  ProUIRadiogroupLabelsSet:
+    labels: in_ptr_array
+  ProUIRadiogroupNamesSet:
+    names: in_ptr_array
+  ProUIRadiogroupSelectednamesSet:
+    names: in_ptr_array
+  ProUITabItemhelptextSet:
+    itemhelptext: in_ptr_array
+  ProUITabLabelsSet:
+    values: in_ptr_array
+  ProUITabLayoutsInsert:
+    names: in_ptr_array
+  ProUITabSelectednamesSet:
+    values: in_ptr_array
+  ProUITableColumnCellsDeselect:
+    names: in_ptr_array
+  ProUITableColumnCellsSelect:
+    names: in_ptr_array
+  ProUITableColumnlabelsSet:
+    values: in_ptr_array
+  ProUITableColumnnamesSet:
+    values: in_ptr_array
+  ProUITableColumnsDelete:
+    names: in_ptr_array
+  ProUITableColumnsInsert:
+    names: in_ptr_array
+  ProUITableRowCellsDeselect:
+    names: in_ptr_array
+  ProUITableRowCellsSelect:
+    names: in_ptr_array
+  ProUITableRowlabelsSet:
+    values: in_ptr_array
+  ProUITableRownamesSet:
+    values: in_ptr_array
+  ProUITableRowsDelete:
+    names: in_ptr_array
+  ProUITableRowsInsert:
+    names: in_ptr_array
+  ProUITableSelectedcolumnnamesSet:
+    values: in_ptr_array
+  ProUITableSelectednamesSet:
+    values: in_ptr_array
+  ProUITableSelectedrownamesSet:
+    values: in_ptr_array
+  ProUITreeNodeTypeNodesSet:
+    array_nodes: in_ptr_array
+  ProUITreeNodesDeselect:
+    nodes: in_ptr_array
+  ProUITreeNodesSelect:
+    nodes: in_ptr_array
+  ProUITreeSelectednamesSet:
+    values: in_ptr_array
+  ProUITreeTreecolumnorderSet:
+    values: in_ptr_array
+  ProUITreeTreenodetypeappendsSet:
+    values: in_ptr_array
+  ProUITreeTreenodetypecollapsedimagesSet:
+    values: in_ptr_array
+  ProUITreeTreenodetypeexpandedimagesSet:
+    values: in_ptr_array
+  ProUITreeTreenodetypehelptextsSet:
+    values: in_ptr_array
+  ProUITreeTreenodetypenamesSet:
+    values: in_ptr_array
+  ProUITreeTreenodetypeprefixesSet:
+    values: in_ptr_array
+  ProValueArrayToWstringArray:
+    value_array: in_ptr_array   # ProValue.h Input "An array of values"(n_values 伴随)
+  ProWstringArrayObjectAdd:
+    p_objects: in_ptr_array     # ProWstring.h Input "contiguous set of wide strings"(n_objects 伴随)
+
+# 可空指针参数真源(§D15)。value 恒为布尔 true;生成器为登记的 ref/out 指针参数额外产出
+# 一个把该参数换成裸 `IntPtr` 的重载(同 EntryPoint,C# 按类型重载),调用方传 IntPtr.Zero 表 NULL。
+# 现仅登记手写兜底实际需要的 units(POD-struct-ref,可传 NULL 表"无单位")。引用不存在/不可空参数 fail-fast。
+nullable_params:
+  ProParameterWithUnitsCreate:
+    units: true
+  ProParameterValueWithUnitsSet:
+    units: true

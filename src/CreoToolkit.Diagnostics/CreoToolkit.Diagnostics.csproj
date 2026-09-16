@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CreoToolkit.App\CreoToolkit.App.csproj" />
+    <ProjectReference Include="..\CreoToolkit.Sdk\CreoToolkit.Sdk.csproj" />
+    <ProjectReference Include="..\CreoToolkit.Interop\CreoToolkit.Interop.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="CreoToolkit.Host.Tests" />
+  </ItemGroup>
+</Project>

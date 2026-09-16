@@ -1,0 +1,21 @@
+CTK_USER_MSG
+%0w
+#
+#
+CURRENT_MODEL
+Current Model
+#
+#
+CURRENT_MODEL_HELP
+Show current model name
+#
+#
+LIST_PARAMS
+List Parameters
+#
+#
+LIST_PARAMS_HELP
+List parameters of current model
+#
+#
+

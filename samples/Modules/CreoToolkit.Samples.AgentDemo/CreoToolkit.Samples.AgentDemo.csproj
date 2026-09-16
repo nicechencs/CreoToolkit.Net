@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- LangVersion/Nullable/ImplicitUsings/Platforms/CodePage 由 Directory.Build.props 统一提供。 -->
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\src\CreoToolkit.Sdk\CreoToolkit.Sdk.csproj" />
+    <ProjectReference Include="..\..\..\src\CreoToolkit.App\CreoToolkit.App.csproj" />
+    <ProjectReference Include="..\..\..\src\CreoToolkit.Agent\CreoToolkit.Agent.csproj" />
+    <ProjectReference Include="..\..\..\src\CreoToolkit.Agent.Client\CreoToolkit.Agent.Client.csproj" />
+  </ItemGroup>
+</Project>

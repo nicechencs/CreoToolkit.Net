@@ -1,0 +1,119 @@
+<Project>
+
+  <!--
+    架构边界硬阻断:
+    禁止 samples/Modules/ 下的 Module csproj **直接** 引用以下:
+      - src/CreoToolkit.Host/        (装载层,Module 不应触达)
+      - src/CreoToolkit.Interop/     (L2 P/Invoke 层,会触发类型身份分裂风险, 见 docs/sample-loading-flow.md §3.3)
+      - src/CreoToolkit.NativeAbi/   (L1 native 层,Module 应只用 L3/L4 公共面)
+      - samples/Modules/ 下其他 Module  (#26 Module 间禁互调,破坏物理隔离 + 客户裁剪)
+
+    Module 允许引:
+      - src/CreoToolkit.Sdk/  (L3 对象模型)
+      - src/CreoToolkit.App/  (L4 应用层,CreoAppBuilder/CreoCommand 等)
+      - 未来 samples/Shared/  (Sample 共享层,#26 公共逻辑下沉位置)
+
+    实现说明: 使用 XmlPeek 读 csproj 直接 XML,只检查 <ProjectReference Include="..."> 元素。
+    不使用 @(ProjectReference) item,因为后者在 build 阶段被 MSBuild 注入了 transitive 引用,
+    会误报 Module 通过 Sdk/App 间接依赖的 Interop (例如 Sdk -> Interop 是合法的 transitive)。
+  -->
+
+  <PropertyGroup>
+    <_RepoRoot>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)'))</_RepoRoot>
+    <_ProjectDir>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\'))</_ProjectDir>
+    <_IsSampleModule>$([System.String]::Copy('$(_ProjectDir)').StartsWith('$(_RepoRoot)samples\Modules\', System.StringComparison.OrdinalIgnoreCase))</_IsSampleModule>
+    <_IsAggregateHost>$([System.String]::Copy('$(MSBuildProjectName)').Equals('CreoToolkit.Samples.ProtkAppls.Core', System.StringComparison.OrdinalIgnoreCase))</_IsAggregateHost>
+    <_ToolsRoot>$([System.IO.Path]::GetFullPath('$(_RepoRoot)..\tools'))</_ToolsRoot>
+  </PropertyGroup>
+
+  <Target Name="ValidateCreoToolkitModuleReferences"
+          BeforeTargets="BeforeBuild"
+          Condition="'$(_IsSampleModule)' == 'True'">
+
+    <!-- XmlPeek: 精确读 csproj 的 <ProjectReference Include="..."> 直接引用(忽略 transitive)。 -->
+    <XmlPeek XmlInputPath="$(MSBuildProjectFullPath)"
+             Query="//ProjectReference/@Include">
+      <Output TaskParameter="Result" ItemName="_DirectProjectReference" />
+    </XmlPeek>
+
+    <ItemGroup>
+      <_ForbiddenReference Include="@(_DirectProjectReference)"
+        Condition="
+          $([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\%(_DirectProjectReference.Identity)').StartsWith('$(_RepoRoot)src\CreoToolkit.Host\', System.StringComparison.OrdinalIgnoreCase)) Or
+          $([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\%(_DirectProjectReference.Identity)').StartsWith('$(_RepoRoot)src\CreoToolkit.Interop\', System.StringComparison.OrdinalIgnoreCase)) Or
+          $([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\%(_DirectProjectReference.Identity)').StartsWith('$(_RepoRoot)src\CreoToolkit.NativeAbi\', System.StringComparison.OrdinalIgnoreCase)) Or
+          $([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\%(_DirectProjectReference.Identity)').StartsWith('$(_RepoRoot)samples\Modules\', System.StringComparison.OrdinalIgnoreCase))
+        " />
+    </ItemGroup>
+
+    <Error Condition="'@(_ForbiddenReference)' != ''"
+           Text="CreoToolkit Module '$(MSBuildProjectName)' 直接引用了禁止的项目: @(_ForbiddenReference). Module 只能引 CreoToolkit.Sdk / CreoToolkit.App / samples/Shared/,不能引 Host/Interop/NativeAbi 或其他 Module." />
+  </Target>
+
+  <!--
+    命令名前缀 lint:聚合宿主 build 阶段触发 ps1 脚本扫描所有 Module Registration.cs,
+    校验命令名三段式 + 同 Module 内前缀一致 + 跨 Module 前缀互不撞。
+    只在聚合宿主 build 触发,避免每 Module build 都跑造成噪音。
+  -->
+  <Target Name="ValidateCommandNamePrefixes"
+          BeforeTargets="BeforeBuild"
+          Condition="'$(_IsAggregateHost)' == 'True' AND Exists('$(_ToolsRoot)\check-command-prefixes.ps1')">
+
+    <Exec Command="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(_ToolsRoot)\check-command-prefixes.ps1&quot; -RepoRoot &quot;$(_RepoRoot)..&quot;"
+          IgnoreExitCode="false"
+          ConsoleToMSBuild="true">
+      <Output TaskParameter="ConsoleOutput" ItemName="_LintOutput" />
+    </Exec>
+  </Target>
+
+  <!--
+    msg key 存在性 lint:聚合宿主 build 阶段触发 ps1 脚本扫描所有 Module 的
+    app.Command(name, labelKey, helpKey, handler) label/help key,校验都在聚合宿主 msg 文件
+    (text/usascii/protk_samples.txt) 中存在。P1.5 踩过 PRO_TK_MSG_NOT_FOUND(-28) 运行时报错,
+    CI 阶段提前拦住。
+  -->
+  <Target Name="ValidateMsgKeys"
+          BeforeTargets="BeforeBuild"
+          Condition="'$(_IsAggregateHost)' == 'True' AND Exists('$(_ToolsRoot)\check-msg-keys.ps1')">
+
+    <Exec Command="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(_ToolsRoot)\check-msg-keys.ps1&quot; -RepoRoot &quot;$(_RepoRoot)..&quot;"
+          IgnoreExitCode="false"
+          ConsoleToMSBuild="true">
+      <Output TaskParameter="ConsoleOutput" ItemName="_LintOutput" />
+    </Exec>
+  </Target>
+
+  <!--
+    Module 日志强制 module 字段 lint:聚合宿主 build 阶段扫
+    samples/Modules/*/ 下所有 .cs 文件,要求每处 CreoLog.Info/Warn/Error/Trace
+    调用必须显式带 module: "<id>" named arg。
+    业务日志缺 module 会被 JSONL 聚类混入 SDK / 未分类桶,违反诊断分流约定。
+  -->
+  <Target Name="ValidateModuleLogging"
+          BeforeTargets="BeforeBuild"
+          Condition="'$(_IsAggregateHost)' == 'True' AND Exists('$(_ToolsRoot)\check-module-logging.ps1')">
+
+    <Exec Command="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(_ToolsRoot)\check-module-logging.ps1&quot; -RepoRoot &quot;$(_RepoRoot)..&quot;"
+          IgnoreExitCode="false"
+          ConsoleToMSBuild="true">
+      <Output TaskParameter="ConsoleOutput" ItemName="_LintOutput" />
+    </Exec>
+  </Target>
+
+  <!--
+    菜单父项命名约定 lint:每 Module 的 app.MenuButton 调用 parentMenu 必须以
+    "ApplDir.<ModuleId>" 开头(或更深子路径),防止多 Module 同顶级父项冲突。
+    在聚合宿主 build 触发, 只扫描 samples/Modules/ 下 Module。
+  -->
+  <Target Name="ValidateMenuParentConvention"
+          BeforeTargets="BeforeBuild"
+          Condition="'$(_IsAggregateHost)' == 'True' AND Exists('$(_ToolsRoot)\check-menu-parent-convention.ps1')">
+
+    <Exec Command="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(_ToolsRoot)\check-menu-parent-convention.ps1&quot; -RepoRoot &quot;$(_RepoRoot)..&quot;"
+          IgnoreExitCode="false"
+          ConsoleToMSBuild="true">
+      <Output TaskParameter="ConsoleOutput" ItemName="_LintOutput" />
+    </Exec>
+  </Target>
+
+</Project>

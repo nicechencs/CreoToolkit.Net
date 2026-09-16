@@ -1,0 +1,8 @@
+name creo-toolkit-host
+startup dll
+exec_file __CTK_NATIVE_HOST_DLL__
+text_dir __CTK_TEXT_DIR__
+allow_stop true
+delay_start false
+unicode_encoding True
+end

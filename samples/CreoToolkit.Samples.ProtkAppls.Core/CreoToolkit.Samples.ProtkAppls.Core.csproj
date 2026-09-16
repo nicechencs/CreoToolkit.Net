@@ -1,0 +1,51 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <Import Project="..\SampleCatalog.props" />
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <!-- copy-local 私有依赖；插件在默认 AppDomain 由 Host LoadFrom + AssemblyResolve 装载。 -->
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="text\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="CreoToolkit.Samples.ProtkAppls.WinForms" />
+  </ItemGroup>
+  <!-- 测试可见性带 Exists 守卫: 私仓(tests 在)生效, 公开发布单元(无 tests)自动跳过 -->
+  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)\..\..\tests\CreoToolkit.Samples.ProtkAppls.WinForms.Tests')">
+    <InternalsVisibleTo Include="CreoToolkit.Samples.ProtkAppls.WinForms.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CreoToolkit.App\CreoToolkit.App.csproj" />
+    <ProjectReference Include="@(CtkSampleModule->'$(MSBuildThisFileDirectory)..\%(ProjectRelativePath)')" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="$(IntermediateOutputPath)SampleModuleCatalog.g.cs" Visible="false" />
+  </ItemGroup>
+
+  <Target Name="ValidateSampleCatalog" BeforeTargets="BeforeBuild">
+    <Exec Command="powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File &quot;$(MSBuildThisFileDirectory)..\..\scripts\validate-sample-catalog.ps1&quot; -CatalogPath &quot;$(MSBuildThisFileDirectory)..\SampleCatalog.props&quot;" />
+  </Target>
+
+  <Target Name="GenerateSampleModuleCatalog"
+          BeforeTargets="CoreCompile"
+          Inputs="$(MSBuildThisFileDirectory)..\SampleCatalog.props"
+          Outputs="$(IntermediateOutputPath)SampleModuleCatalog.g.cs">
+    <MakeDir Directories="$(IntermediateOutputPath)" />
+    <ItemGroup>
+      <_SampleCatalogLine Include="// &lt;auto-generated /&gt;" />
+      <_SampleCatalogLine Include="namespace CreoToolkit.Samples.ProtkAppls.Core%3B" />
+      <_SampleCatalogLine Include="internal static class SampleModuleCatalog" />
+      <_SampleCatalogLine Include="{" />
+      <_SampleCatalogLine Include="    internal static void RegisterAll(global::CreoToolkit.App.CreoAppBuilder app, string modelName, global::CreoToolkit.Sdk.CreoModelType modelType, string parameterName, global::CreoToolkit.Samples.AgentDemo.AgentDemoRuntime agentRuntime)" />
+      <_SampleCatalogLine Include="    {" />
+      <_SampleCatalogLine Include="        global::%(CtkSampleModule.RegistrationType).Register(%(CtkSampleModule.RegistrationArguments))%3B" />
+      <_SampleCatalogLine Include="    }" />
+      <_SampleCatalogLine Include="}" />
+    </ItemGroup>
+    <WriteLinesToFile File="$(IntermediateOutputPath)SampleModuleCatalog.g.cs"
+                      Lines="@(_SampleCatalogLine)"
+                      Overwrite="true"
+                      Encoding="UTF-8" />
+  </Target>
+</Project>

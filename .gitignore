@@ -1,0 +1,77 @@
+# 构建产物、本地日志与发布目录不入仓。
+#
+# 必须入仓（不要用通配符误伤）：
+#   src/CreoToolkit.NativeHost/protk.host.dat   Stage 模板
+#   src/CreoToolkit.Interop/Generated/**        头文件生成的绑定
+#   src/**/*.cs / *.cpp / *.h / *.csproj        源码与工程
+
+# .NET build output
+bin/
+obj/
+*.user
+
+# Visual Studio 缓存
+.vs/
+*.suo
+*.userosscache
+
+# Native 构建产物 (NMake wrapper 会直接在 src/*/ 产出;非 tracked 源文件)
+*.dll
+*.exe
+*.pdb
+*.obj
+*.exp
+*.ilk
+*.lib
+*.o
+*.a
+*.so
+# NMake wrapper 用的 src/CreoToolkit.NativeHost/out/ 输出根
+src/CreoToolkit.NativeHost/out/
+
+# Generated Interop bindings 已入仓：不依赖开发者本地 Python+libclang，跨机器一致。
+
+# CMake build tree (regenerable via build_native.cmd / scripts/build-native-v140.ps1)
+cmake/
+cmake-v140/
+CMakeUserPresets.json
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Stage / Deploy：scripts/stage.ps1、publish-deploy.ps1 的派生产物，不进源。
+artifacts/
+deploy/
+
+# 本地截图、一次性诊断文件
+temp/
+
+# native bootstrap / Serilog 运行日志(任意层级)
+**/logs/
+*.jsonl
+*.pointer
+managed-init-failure.txt
+
+# Creo 会话掉在工作目录的文件（勿把源码里的 .dat 模板用 *.dat 一刀切）
+std.out
+std.err
+trail.txt*
+traceback
+current_session.pro
+
+# 测试 / 覆盖率
+TestResults/
+coverage/
+*.coverage
+*.trx
+
+# NuGet 包文件（工程引用走 PackageReference，不提交 packages/）
+*.nupkg
+*.snupkg
+packages/
+
+# OS
+Thumbs.db
+Desktop.ini

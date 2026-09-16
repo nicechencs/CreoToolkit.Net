@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <!-- Generated structs use `fixed` buffers for union members that are fixed
+         arrays (managed arrays cannot overlap value fields in an explicit union). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Serilog 引擎：JSONL 文件 sink + 可选 stderr text sink。CreoLog 静态门面内部委托之。 -->
+    <PackageReference Include="Serilog" Version="4.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="6.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="CreoToolkit.Interop.Tests" />
+    <!-- 防线3(L3 SDK)的真实 native 桥 CreoNativeBridge 调用本层 internal NativeMethods P/Invoke;
+         保持 NativeMethods 不进 L2 public 面, 仅对受信的 L3 装配可见。 -->
+    <InternalsVisibleTo Include="CreoToolkit.Sdk" />
+    <!-- MEL 桥接层测试需要访问 ResetForTest（日志格式控制）-->
+    <InternalsVisibleTo Include="CreoToolkit.Logging.Tests" />
+  </ItemGroup>
+
+  <!-- 构建时按 CreoVersion 生成 Interop 绑定（gitignore 产物）。见该 .targets 文件头注。 -->
+  <Import Project="CreoToolkit.Interop.Generation.targets" />
+
+</Project>

@@ -1,0 +1,38 @@
+<Project>
+  <!--
+    ARCH-006 single source of truth.
+    Order is part of the compatibility contract: it controls command/menu registration
+    and app packaging order. Adding a module or aggregate app requires one item here.
+  -->
+  <ItemGroup>
+    <CtkSampleModule Include="pt-basic" Order="010" ProjectRelativePath="Modules\CreoToolkit.Samples.PtBasic\CreoToolkit.Samples.PtBasic.csproj" RegistrationType="CreoToolkit.Samples.PtBasic.PtBasicRegistration" RegistrationArguments="app" />
+    <CtkSampleModule Include="pt-simple-async" Order="020" ProjectRelativePath="Modules\CreoToolkit.Samples.PtSimpleAsync\CreoToolkit.Samples.PtSimpleAsync.csproj" RegistrationType="CreoToolkit.Samples.PtSimpleAsync.PtSimpleAsyncRegistration" RegistrationArguments="app, modelName, modelType" />
+    <CtkSampleModule Include="pt-dbase" Order="030" ProjectRelativePath="Modules\CreoToolkit.Samples.PtDbase\CreoToolkit.Samples.PtDbase.csproj" RegistrationType="CreoToolkit.Samples.PtDbase.PtDbaseRegistration" RegistrationArguments="app, modelName, modelType" />
+    <CtkSampleModule Include="pt-params" Order="040" ProjectRelativePath="Modules\CreoToolkit.Samples.PtParams\CreoToolkit.Samples.PtParams.csproj" RegistrationType="CreoToolkit.Samples.PtParams.PtParamsRegistration" RegistrationArguments="app, modelName, modelType, parameterName" />
+    <CtkSampleModule Include="pt-feature" Order="050" ProjectRelativePath="Modules\CreoToolkit.Samples.PtFeature\CreoToolkit.Samples.PtFeature.csproj" RegistrationType="CreoToolkit.Samples.PtFeature.PtFeatureRegistration" RegistrationArguments="app, modelName, modelType" />
+    <CtkSampleModule Include="pt-select" Order="060" ProjectRelativePath="Modules\CreoToolkit.Samples.PtSelect\CreoToolkit.Samples.PtSelect.csproj" RegistrationType="CreoToolkit.Samples.PtSelect.PtSelectRegistration" RegistrationArguments="app, modelName, modelType" />
+    <CtkSampleModule Include="pt-dimension" Order="070" ProjectRelativePath="Modules\CreoToolkit.Samples.PtDimension\CreoToolkit.Samples.PtDimension.csproj" RegistrationType="CreoToolkit.Samples.PtDimension.PtDimensionRegistration" RegistrationArguments="app, modelName, modelType" />
+    <CtkSampleModule Include="pt-geom" Order="080" ProjectRelativePath="Modules\CreoToolkit.Samples.PtGeom\CreoToolkit.Samples.PtGeom.csproj" RegistrationType="CreoToolkit.Samples.PtGeom.PtGeomRegistration" RegistrationArguments="app, modelName, modelType" />
+    <CtkSampleModule Include="pt-asm" Order="090" ProjectRelativePath="Modules\CreoToolkit.Samples.PtAsm\CreoToolkit.Samples.PtAsm.csproj" RegistrationType="CreoToolkit.Samples.PtAsm.PtAsmRegistration" RegistrationArguments="app, modelName, global::System.Array.Empty&lt;int&gt;()" />
+    <CtkSampleModule Include="pt-drawing" Order="100" ProjectRelativePath="Modules\CreoToolkit.Samples.PtDrawing\CreoToolkit.Samples.PtDrawing.csproj" RegistrationType="CreoToolkit.Samples.PtDrawing.PtDrawingRegistration" RegistrationArguments="app, modelName" />
+    <CtkSampleModule Include="pt-install" Order="110" ProjectRelativePath="Modules\CreoToolkit.Samples.PtInstall\CreoToolkit.Samples.PtInstall.csproj" RegistrationType="CreoToolkit.Samples.PtInstall.PtInstallRegistration" RegistrationArguments="app" />
+    <CtkSampleModule Include="pt-userguide" Order="120" ProjectRelativePath="Modules\CreoToolkit.Samples.PtUserguide\CreoToolkit.Samples.PtUserguide.csproj" RegistrationType="CreoToolkit.Samples.PtUserguide.PtUserguideRegistration" RegistrationArguments="app, modelName, modelType" />
+    <CtkSampleModule Include="pt-part" Order="130" ProjectRelativePath="Modules\CreoToolkit.Samples.PtPart\CreoToolkit.Samples.PtPart.csproj" RegistrationType="CreoToolkit.Samples.PtPart.PtPartRegistration" RegistrationArguments="app, modelName, modelType" />
+    <CtkSampleModule Include="pt-solid" Order="140" ProjectRelativePath="Modules\CreoToolkit.Samples.PtSolid\CreoToolkit.Samples.PtSolid.csproj" RegistrationType="CreoToolkit.Samples.PtSolid.PtSolidRegistration" RegistrationArguments="app, modelName, modelType" />
+    <CtkSampleModule Include="pt-layer" Order="150" ProjectRelativePath="Modules\CreoToolkit.Samples.PtLayer\CreoToolkit.Samples.PtLayer.csproj" RegistrationType="CreoToolkit.Samples.PtLayer.PtLayerRegistration" RegistrationArguments="app, modelName, modelType" />
+    <CtkSampleModule Include="agent-demo" Order="160" ProjectRelativePath="Modules\CreoToolkit.Samples.AgentDemo\CreoToolkit.Samples.AgentDemo.csproj" RegistrationType="CreoToolkit.Samples.AgentDemo.AgentDemoRegistration" RegistrationArguments="app, agentRuntime" />
+    <CtkSampleModule Include="host-probe" Order="170" ProjectRelativePath="Modules\CreoToolkit.Samples.HostProbe\CreoToolkit.Samples.HostProbe.csproj" RegistrationType="CreoToolkit.Samples.HostProbe.HostProbeRegistration" RegistrationArguments="app, modelName, modelType" />
+    <CtkSampleModule Include="pt-params-units" Order="180" ProjectRelativePath="Modules\CreoToolkit.Samples.PtParamsUnits\CreoToolkit.Samples.PtParamsUnits.csproj" RegistrationType="CreoToolkit.Samples.PtParamsUnits.PtParamsUnitsRegistration" RegistrationArguments="app, modelName, modelType, parameterName" />
+    <CtkSampleModule Include="ext-creo-menu" Order="190" ProjectRelativePath="Modules\CreoToolkit.Samples.ExtCreoMenu\CreoToolkit.Samples.ExtCreoMenu.csproj" RegistrationType="CreoToolkit.Samples.ExtCreoMenu.ExtCreoMenuRegistration" RegistrationArguments="app" />
+    <CtkSampleModule Include="pt-udf-demo" Order="200" ProjectRelativePath="Modules\CreoToolkit.Samples.PtUdfDemo\CreoToolkit.Samples.PtUdfDemo.csproj" RegistrationType="CreoToolkit.Samples.PtUdfDemo.PtUdfDemoRegistration" RegistrationArguments="app" />
+    <CtkSampleModule Include="model-inspect-demo" Order="210" ProjectRelativePath="Modules\CreoToolkit.Samples.ModelInspectDemo\CreoToolkit.Samples.ModelInspectDemo.csproj" RegistrationType="CreoToolkit.Samples.ModelInspectDemo.ModelInspectDemoRegistration" RegistrationArguments="app, modelName, modelType" />
+    <CtkSampleModule Include="elem-tree-walk" Order="220" ProjectRelativePath="Modules\CreoToolkit.Samples.ElemTreeWalk\CreoToolkit.Samples.ElemTreeWalk.csproj" RegistrationType="CreoToolkit.Samples.ElemTreeWalk.ElemTreeWalkRegistration" RegistrationArguments="app, modelName, modelType" />
+    <CtkSampleModule Include="elem-tree-export" Order="230" ProjectRelativePath="Modules\CreoToolkit.Samples.ElemTreeExport\CreoToolkit.Samples.ElemTreeExport.csproj" RegistrationType="CreoToolkit.Samples.ElemTreeExport.ElemTreeExportRegistration" RegistrationArguments="app" />
+    <CtkSampleModule Include="model-survey" Order="240" ProjectRelativePath="Modules\CreoToolkit.Samples.ModelSurvey\CreoToolkit.Samples.ModelSurvey.csproj" RegistrationType="CreoToolkit.Samples.ModelSurvey.ModelSurveyRegistration" RegistrationArguments="app, modelName, modelType" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <CtkSampleApp Include="protk-samples-core" Order="010" ProjectRelativePath="CreoToolkit.Samples.ProtkAppls.Core\CreoToolkit.Samples.ProtkAppls.Core.csproj" Type="CreoToolkit.Samples.ProtkAppls.Core.ProtkSimpleSamplesCoreApp" Assembly="CreoToolkit.Samples.ProtkAppls.Core.dll" MsgFile="protk_samples.txt" />
+    <CtkSampleApp Include="protk-samples-winforms" Order="020" ProjectRelativePath="CreoToolkit.Samples.ProtkAppls.WinForms\CreoToolkit.Samples.ProtkAppls.WinForms.csproj" Type="CreoToolkit.Samples.ProtkAppls.ProtkSimpleSamplesApp" Assembly="CreoToolkit.Samples.ProtkAppls.WinForms.dll" MsgFile="protk_samples.txt" />
+  </ItemGroup>
+</Project>

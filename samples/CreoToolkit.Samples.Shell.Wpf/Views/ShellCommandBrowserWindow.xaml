@@ -1,0 +1,140 @@
+<ui:FluentWindow x:Class="CreoToolkit.Samples.WpfShell.Views.ShellCommandBrowserWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+    xmlns:sys="clr-namespace:System;assembly=mscorlib"
+    Title="CreoToolkit · WPF" Height="820" Width="1280"
+    MinWidth="1024" MinHeight="720"
+    WindowStartupLocation="CenterScreen"
+    ExtendsContentIntoTitleBar="True"
+    WindowBackdropType="Mica"
+    WindowCornerPreference="Default">
+
+    <ui:FluentWindow.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- 合并 WPF-UI 默认 Fluent 样式, TabItem / DataGrid / RichTextBox 自动平化, 不再保留 Win10 Aero 立体感。 -->
+                <ui:ThemesDictionary Theme="Light" />
+                <ui:ControlsDictionary />
+            </ResourceDictionary.MergedDictionaries>
+
+            <SolidColorBrush x:Key="DangerStripe" Color="#C42B1C" />
+            <SolidColorBrush x:Key="WarningStripe" Color="#B89800" />
+            <SolidColorBrush x:Key="SuccessStripe" Color="#107C10" />
+            <SolidColorBrush x:Key="AccentSoft" Color="#1A0078D4" />
+            <SolidColorBrush x:Key="DangerSoft" Color="#1AC42B1C" />
+            <SolidColorBrush x:Key="SuccessSoft" Color="#1A107C10" />
+
+            <!-- 字号常量: WinForms FluentPalette pt × 96/72 = WPF dip, 与 Shell.WinForms 同源, 避免跨 dialog 切换字号跳变。 -->
+            <sys:Double x:Key="FsCaption">11</sys:Double>
+            <sys:Double x:Key="FsBody">13</sys:Double>
+            <sys:Double x:Key="FsSubtitle">15</sys:Double>
+            <sys:Double x:Key="FsMono">12</sys:Double>
+        </ResourceDictionary>
+    </ui:FluentWindow.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="200" />
+        </Grid.RowDefinitions>
+
+        <!-- 0: TitleBar -->
+        <ui:TitleBar Grid.Row="0" Title="CreoToolkit · WPF Shell" />
+
+        <!-- 1: 顶部 Context Card: 标题 + 副标 + chips -->
+        <ui:Card Grid.Row="1" Margin="16,12,16,8" Padding="20,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0">
+                    <TextBlock x:Name="LblTitle" FontSize="{StaticResource FsSubtitle}" FontWeight="SemiBold" />
+                    <TextBlock Text="Pro/Toolkit 命令面板 · 选择左侧表格中的条目执行"
+                               Opacity="0.6" FontSize="{StaticResource FsCaption}" Margin="0,2,0,0"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border Background="{StaticResource AccentSoft}" Padding="10,4" Margin="6,0,0,0" CornerRadius="4">
+                        <TextBlock x:Name="LblModel" Text="Model: -" FontSize="{StaticResource FsCaption}" />
+                    </Border>
+                    <Border Background="{StaticResource DangerSoft}" Padding="10,4" Margin="6,0,0,0" CornerRadius="4">
+                        <TextBlock x:Name="LblModified" Text="IsModified: -" FontSize="{StaticResource FsCaption}" />
+                    </Border>
+                    <Border Background="{StaticResource SuccessSoft}" Padding="10,4" Margin="6,0,0,0" CornerRadius="4">
+                        <TextBlock x:Name="LblSession" Text="Session: -" FontSize="{StaticResource FsCaption}" />
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </ui:Card>
+
+        <!-- 2: 搜索 -->
+        <ui:TextBox Grid.Row="2" x:Name="SearchBox" Margin="16,0,16,8"
+                    Height="36" FontSize="{StaticResource FsBody}"
+                    PlaceholderText="全局过滤 (token / module / labelKey)..." />
+
+        <!-- 3: 主体 split: 左表 + 右 detail -->
+        <Grid Grid.Row="3" Margin="16,0,16,8" VerticalAlignment="Stretch">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="1*" />
+            </Grid.ColumnDefinitions>
+
+            <!-- 左: Card + TabControl + DataGrid -->
+            <ui:Card Grid.Column="0" Margin="0,0,8,0" Padding="0" VerticalAlignment="Stretch"
+                     HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                <TabControl x:Name="TabsCtl" Padding="0" BorderThickness="0" Background="Transparent" VerticalAlignment="Stretch" />
+            </ui:Card>
+
+            <!-- 右: Detail Card -->
+            <ui:Card Grid.Column="1" Padding="20" VerticalAlignment="Stretch"
+                     HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="命令详情" FontSize="{StaticResource FsSubtitle}" FontWeight="SemiBold" />
+                    <TextBlock Grid.Row="1" x:Name="DetailToken"
+                               FontFamily="Cascadia Mono, Consolas" FontSize="{StaticResource FsMono}"
+                               Margin="0,8,0,8" Text="在左侧选一条命令" Opacity="0.7" />
+                    <TextBlock Grid.Row="2" x:Name="DetailMeta"
+                               FontFamily="Cascadia Mono, Consolas" FontSize="{StaticResource FsMono}"
+                               Margin="0,0,0,12" />
+                    <TextBlock Grid.Row="3" x:Name="DetailHelp" TextWrapping="Wrap"
+                               FontSize="{StaticResource FsCaption}" Opacity="0.6" />
+
+                    <ui:Button Grid.Row="4" x:Name="BtnRun" Content="Run"
+                               Appearance="Primary" IsEnabled="False"
+                               HorizontalAlignment="Stretch" Height="40"
+                               Click="OnRunClick" />
+                </Grid>
+            </ui:Card>
+        </Grid>
+
+        <!-- 4: 日志 Card -->
+        <ui:Card Grid.Row="4" Margin="16,0,16,16" Padding="12">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <TextBlock Grid.Row="0" Text="实时日志 tail"
+                           FontSize="{StaticResource FsBody}" FontWeight="SemiBold"
+                           Margin="0,0,0,6" Opacity="0.75" />
+                <RichTextBox Grid.Row="1" x:Name="LogBox" IsReadOnly="True"
+                             FontFamily="Cascadia Mono, Consolas" FontSize="{StaticResource FsMono}"
+                             BorderThickness="0" Background="#FAFAFA"
+                             VerticalScrollBarVisibility="Auto"
+                             HorizontalScrollBarVisibility="Auto" />
+            </Grid>
+        </ui:Card>
+    </Grid>
+</ui:FluentWindow>

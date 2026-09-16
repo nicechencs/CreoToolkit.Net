@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CreoToolkit.Interop\CreoToolkit.Interop.csproj" />
+    <ProjectReference Include="..\..\src\CreoToolkit.App\CreoToolkit.App.csproj" />
+    <ProjectReference Include="..\..\src\CreoToolkit.Sdk\CreoToolkit.Sdk.csproj" />
+    <ProjectReference Include="..\CreoToolkit.Samples.ProtkAppls.Core\CreoToolkit.Samples.ProtkAppls.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="CreoToolkit.Samples.Shell.Wpf" />
+  </ItemGroup>
+  <!-- 测试可见性带 Exists 守卫: 私仓(tests 在)生效, 公开发布单元(无 tests)自动跳过 -->
+  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)\..\..\tests\CreoToolkit.Samples.ProtkAppls.WinForms.Tests')">
+    <InternalsVisibleTo Include="CreoToolkit.Samples.ProtkAppls.WinForms.Tests" />
+  </ItemGroup>
+</Project>

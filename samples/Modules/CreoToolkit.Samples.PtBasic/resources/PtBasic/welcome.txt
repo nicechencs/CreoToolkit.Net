@@ -1,0 +1,8 @@
+CreoToolkit Sample Module · PtBasic resources/ convention demo
+
+This file exists ONLY to demonstrate the Module resources convention.
+The samples/Modules/Directory.Build.props
+auto-copies this file to the aggregate host bin output (PreserveNewest).
+
+No code reads this file. When a real Module needs resources, follow the same
+load pattern.

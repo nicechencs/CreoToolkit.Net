@@ -1,0 +1,23 @@
+<Project>
+  <!-- Module 资源文件约定:
+       任何 Module 在自己根目录下放 `resources/<ModuleId>/`(图标/JSON/模板等),
+       此声明自动让其内文件在 build 时复制到 bin 的 Module DLL 同目录。
+       Module 自决:不放就什么也不发生(0 文件匹配)。 -->
+  <Import Project="..\..\Directory.Build.props" />
+
+  <ItemGroup>
+    <None Include="resources\**" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+  <!-- Lint:
+       resources/ 下严禁顶层文件,必须 resources/<ModuleId>/...
+       理由: 聚合宿主共享 bin,顶层同名资源会"最后写的赢"破物理隔离。
+       命中: ModuleId 由 csproj 名 CreoToolkit.Samples.<ModuleId> 剥前缀得到。 -->
+  <Target Name="ValidateModuleResourcesLayout" BeforeTargets="BeforeBuild">
+    <ItemGroup>
+      <_ModuleResourcesTopLevel Include="resources\*" />
+    </ItemGroup>
+    <Error Condition="'@(_ModuleResourcesTopLevel)' != ''"
+           Text="lint failed: $(MSBuildProjectName) has files directly under resources/ (@(_ModuleResourcesTopLevel, ', ')). Move them under resources\$(MSBuildProjectName.Replace('CreoToolkit.Samples.', ''))\..." />
+  </Target>
+</Project>

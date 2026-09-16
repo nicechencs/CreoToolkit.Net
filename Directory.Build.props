@@ -1,0 +1,42 @@
+<Project>
+  <PropertyGroup>
+    <!-- Language: keep latest C# on net472 (do not drop to 7.3). -->
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+
+    <!-- Platform: Creo DLL is x64-only -->
+    <Platforms>x64</Platforms>
+    <PlatformTarget Condition="'$(MSBuildProjectExtension)' == '.csproj'">x64</PlatformTarget>
+
+    <!-- Encoding: enforce UTF-8 everywhere -->
+    <CodePage>65001</CodePage>
+
+    <!-- Output paths -->
+    <AppendTargetFrameworkToOutputPath>true</AppendTargetFrameworkToOutputPath>
+
+    <TargetFramework Condition="'$(MSBuildProjectExtension)' == '.csproj' and '$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">net472</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectExtension)' == '.csproj'">
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectExtension)' == '.csproj'">
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net472" Version="1.0.3" PrivateAssets="all" />
+    <PackageReference Include="System.Memory" Version="4.6.0" />
+    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.1.0" />
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <PackageReference Include="System.Text.Encodings.Web" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Bcl.HashCode" Version="1.1.1" />
+    <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="8.0.0" />
+    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.4" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MSBuildProjectExtension)' == '.csproj' and '$(MSBuildProjectName)' != 'CreoToolkit.Polyfills'">
+    <ProjectReference Include="$(MSBuildThisFileDirectory)src\CreoToolkit.Polyfills\CreoToolkit.Polyfills.csproj" />
+  </ItemGroup>
+</Project>
+

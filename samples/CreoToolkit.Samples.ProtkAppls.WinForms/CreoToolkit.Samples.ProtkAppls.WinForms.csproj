@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <UseWindowsForms>true</UseWindowsForms>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\CreoToolkit.Samples.ProtkAppls.Core\text\**\*" Link="text\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CreoToolkit.Samples.ProtkAppls.Core\CreoToolkit.Samples.ProtkAppls.Core.csproj" />
+    <ProjectReference Include="..\CreoToolkit.Samples.Shell.WinForms\CreoToolkit.Samples.Shell.WinForms.csproj" />
+    <ProjectReference Include="..\CreoToolkit.Samples.Shell.Wpf\CreoToolkit.Samples.Shell.Wpf.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>CreoToolkit.Samples.WpfShell</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WPF-UI" Version="4.0.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\CreoToolkit.Interop\CreoToolkit.Interop.csproj" />
+    <ProjectReference Include="..\..\src\CreoToolkit.App\CreoToolkit.App.csproj" />
+    <ProjectReference Include="..\CreoToolkit.Samples.Shell.WinForms\CreoToolkit.Samples.Shell.WinForms.csproj" />
+  </ItemGroup>
+</Project>

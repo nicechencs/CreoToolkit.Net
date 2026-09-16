@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <!-- Host 加载的插件可能用 WinForms/WPF，CLR 初始化时必须包含 WindowsDesktop 框架 -->
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- 普通 build 仅写标准 bin/obj。完整运行时目录由 scripts/stage.ps1 显式 publish。 -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CreoToolkit.Sdk\CreoToolkit.Sdk.csproj" />
+    <ProjectReference Include="..\CreoToolkit.App\CreoToolkit.App.csproj" />
+    <ProjectReference Include="..\CreoToolkit.Interop\CreoToolkit.Interop.csproj" />
+    <ProjectReference Include="..\CreoToolkit.Diagnostics\CreoToolkit.Diagnostics.csproj" />
+    <PackageReference Include="Serilog" Version="4.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="CreoToolkit.Host.Tests" />
+  </ItemGroup>
+  <!-- msg 资源随 host 输出/发布，门阶段再部署到 Creo 可检索的 text/usascii/。 -->
+  <ItemGroup>
+    <None Include="resources\**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

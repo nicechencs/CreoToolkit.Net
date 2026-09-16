@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- LangVersion/Nullable/ImplicitUsings/Platforms/CodePage 由 Directory.Build.props 统一提供。 -->
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CreoToolkit.Sdk\CreoToolkit.Sdk.csproj" />
+    <ProjectReference Include="..\CreoToolkit.Interop\CreoToolkit.Interop.csproj" />
+  </ItemGroup>
+
+  <!-- 测试可见 internal 构造（CreoCommandContext/CreoMessages）；host 组装真实 AppHost。 -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="CreoToolkit.App.Tests" />
+    <InternalsVisibleTo Include="CreoToolkit.Host" />
+    <InternalsVisibleTo Include="CreoToolkit.Diagnostics" />
+  </ItemGroup>
+
+</Project>

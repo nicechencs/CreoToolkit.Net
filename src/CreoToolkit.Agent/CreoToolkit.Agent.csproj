@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- LangVersion/Nullable/ImplicitUsings/Platforms/CodePage 由 Directory.Build.props 统一提供。 -->
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CreoToolkit.Sdk\CreoToolkit.Sdk.csproj" />
+    <ProjectReference Include="..\CreoToolkit.Interop\CreoToolkit.Interop.csproj" />
+    <!-- wire DTO/编解码落在 Client(客户端进程零 Sdk 依赖),Agent 反向引用共享,依赖方向刻意如此 -->
+    <ProjectReference Include="..\CreoToolkit.Agent.Client\CreoToolkit.Agent.Client.csproj" />
+  </ItemGroup>
+</Project>

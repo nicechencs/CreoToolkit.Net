@@ -1,0 +1,1012 @@
+<title>把 .NET 装进 Creo — CreoToolkit 插件运行原理图解</title>
+<style>
+:root {
+  --paper: #F7F8FC;
+  --surface: #FFFFFF;
+  --surface-sunk: #EEF1F8;
+  --ink: #1B2438;
+  --ink-soft: #3A4560;
+  --muted: #5A6478;
+  --rule: #DCE1EE;
+  --rule-strong: #B9C2D6;
+  --accent: #3E5FBB;
+  --accent-soft: #E2E8F7;
+  --signal: #DD6A2B;
+  --signal-soft: #FBEADC;
+  --code-bg: #F0F2F8;
+  --shadow: 0 1px 2px rgba(27,36,56,.04), 0 8px 24px -12px rgba(27,36,56,.10);
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0E141F;
+    --surface: #171E2E;
+    --surface-sunk: #10162299;
+    --ink: #E8ECF6;
+    --ink-soft: #C0C9DE;
+    --muted: #97A2B9;
+    --rule: #293246;
+    --rule-strong: #3C4664;
+    --accent: #82A0E8;
+    --accent-soft: #1E2A47;
+    --signal: #F0925A;
+    --signal-soft: #3A2517;
+    --code-bg: #10162280;
+    --shadow: 0 1px 2px rgba(0,0,0,.30), 0 12px 30px -14px rgba(0,0,0,.55);
+  }
+}
+:root[data-theme="light"] {
+  --paper: #F7F8FC; --surface: #FFFFFF; --surface-sunk: #EEF1F8;
+  --ink: #1B2438; --ink-soft: #3A4560; --muted: #5A6478;
+  --rule: #DCE1EE; --rule-strong: #B9C2D6;
+  --accent: #3E5FBB; --accent-soft: #E2E8F7;
+  --signal: #DD6A2B; --signal-soft: #FBEADC;
+  --code-bg: #F0F2F8;
+  --shadow: 0 1px 2px rgba(27,36,56,.04), 0 8px 24px -12px rgba(27,36,56,.10);
+}
+:root[data-theme="dark"] {
+  --paper: #0E141F; --surface: #171E2E; --surface-sunk: #10162299;
+  --ink: #E8ECF6; --ink-soft: #C0C9DE; --muted: #97A2B9;
+  --rule: #293246; --rule-strong: #3C4664;
+  --accent: #82A0E8; --accent-soft: #1E2A47;
+  --signal: #F0925A; --signal-soft: #3A2517;
+  --code-bg: #10162280;
+  --shadow: 0 1px 2px rgba(0,0,0,.30), 0 12px 30px -14px rgba(0,0,0,.55);
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei UI", "Helvetica Neue", system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: clamp(2rem, 5vw, 4.5rem) clamp(1.25rem, 4vw, 2rem) 6rem;
+}
+
+/* ---------- Header ---------- */
+.header { margin-bottom: clamp(3rem, 7vw, 4.5rem); }
+.kicker {
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  margin: 0 0 1.25rem;
+}
+h1.title {
+  font-size: clamp(2rem, 5vw, 2.9rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+  margin: 0 0 1rem;
+  text-wrap: balance;
+  color: var(--ink);
+}
+h1.title em {
+  font-style: normal;
+  color: var(--accent);
+  font-weight: 700;
+}
+.lede {
+  font-size: 1.1rem;
+  color: var(--ink-soft);
+  line-height: 1.55;
+  margin: 0;
+  max-width: 42em;
+  text-wrap: pretty;
+}
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.5rem;
+  margin-top: 1.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule);
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.meta-row strong { color: var(--ink-soft); font-weight: 600; }
+
+/* ---------- Section ---------- */
+section { margin-bottom: clamp(3rem, 6vw, 4.5rem); scroll-margin-top: 2rem; }
+.section-head { margin-bottom: 1.75rem; }
+.section-head .kicker { margin-bottom: 0.5rem; }
+h2 {
+  font-size: clamp(1.35rem, 3vw, 1.7rem);
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+h2 .num {
+  color: var(--muted);
+  font-weight: 500;
+  margin-right: 0.6em;
+  font-variant-numeric: tabular-nums;
+}
+.section-head p {
+  margin: 0.25rem 0 0;
+  color: var(--ink-soft);
+  max-width: 40em;
+}
+p { margin: 0 0 1em; }
+p:last-child { margin-bottom: 0; }
+
+/* ---------- Prose helpers ---------- */
+.callout {
+  border-left: 3px solid var(--accent);
+  padding: 0.9rem 1.1rem;
+  background: var(--accent-soft);
+  border-radius: 0 6px 6px 0;
+  color: var(--ink);
+  margin: 1.25rem 0;
+  font-size: 0.95rem;
+}
+.callout.signal { border-color: var(--signal); background: var(--signal-soft); }
+.callout strong { color: var(--ink); }
+
+code, .mono {
+  font-family: "JetBrains Mono", "Cascadia Code", "SF Mono", Consolas, "Courier New", monospace;
+  font-size: 0.9em;
+  font-feature-settings: "liga" 0;
+}
+p code, li code, td code {
+  background: var(--code-bg);
+  padding: 0.08em 0.4em;
+  border-radius: 4px;
+  color: var(--ink);
+  font-size: 0.85em;
+}
+pre {
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 0.95rem 1.1rem;
+  overflow-x: auto;
+  line-height: 1.55;
+  font-size: 0.86rem;
+  margin: 1rem 0;
+  color: var(--ink);
+}
+pre code { background: none; padding: 0; font-size: inherit; }
+.code-caption {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin: 0 0 0.4rem;
+  font-weight: 600;
+}
+
+/* ---------- Analogy card (便条机制) ---------- */
+.analogy {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 1.5rem 1.6rem;
+  box-shadow: var(--shadow);
+  margin: 1.5rem 0;
+}
+.analogy .role {
+  display: inline-block;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+}
+.analogy h3 { margin: 0 0 0.75rem; font-size: 1.05rem; font-weight: 600; color: var(--ink); }
+.analogy p { margin: 0; color: var(--ink-soft); font-size: 0.95rem; }
+
+.flow-diagram {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 1rem;
+  align-items: center;
+  margin: 1.75rem 0 1.25rem;
+}
+.flow-side {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 1rem 1.15rem;
+  box-shadow: var(--shadow);
+}
+.flow-side .who {
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+.flow-side .who.signal { color: var(--signal); }
+.flow-side .flow-line {
+  font-family: "JetBrains Mono", "Cascadia Code", Consolas, monospace;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+  line-height: 1.7;
+}
+.flow-arrow-h {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--signal);
+  font-weight: 600;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.flow-arrow-h .line {
+  width: 60px;
+  height: 2px;
+  background: var(--signal);
+  position: relative;
+}
+.flow-arrow-h .line::after {
+  content: '';
+  position: absolute;
+  right: -1px;
+  top: -4px;
+  border-left: 8px solid var(--signal);
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+}
+@media (max-width: 620px) {
+  .flow-diagram { grid-template-columns: 1fr; }
+  .flow-arrow-h { flex-direction: row; }
+  .flow-arrow-h .line { width: 2px; height: 40px; }
+  .flow-arrow-h .line::after {
+    right: -4px; top: auto; bottom: -1px;
+    border-left: 5px solid transparent; border-right: 5px solid transparent;
+    border-top: 8px solid var(--signal); border-bottom: none;
+  }
+}
+
+/* ---------- Step timeline (8 步) ---------- */
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 1rem;
+  position: relative;
+}
+.step {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr;
+  gap: 1.15rem;
+  position: relative;
+  padding-bottom: 1.5rem;
+}
+.step:last-child { padding-bottom: 0; }
+.step-numcol {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+.step-num {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 2px solid var(--rule-strong);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+.step.pivot .step-num { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.step-connector {
+  flex: 1;
+  width: 2px;
+  min-height: 1rem;
+  background: var(--rule);
+  margin-bottom: -1.5rem;
+}
+.step:last-child .step-connector { display: none; }
+
+.step-body {
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.25rem;
+  box-shadow: var(--shadow);
+  min-width: 0;
+}
+.step.pivot .step-body { border-color: var(--accent); }
+.step-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem 0.9rem;
+  margin-bottom: 0.5rem;
+}
+.step-title {
+  font-size: 1.02rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin: 0;
+  line-height: 1.3;
+}
+.by {
+  display: inline-block;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  padding: 0.15rem 0.55rem;
+  border: 1px solid var(--rule-strong);
+  border-radius: 999px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.by.creo { color: var(--ink); border-color: var(--rule-strong); }
+.by.os { color: var(--muted); }
+.by.runtime { color: var(--accent); border-color: var(--accent); }
+.by.ours { color: var(--signal); border-color: var(--signal); }
+.step p { margin: 0.5rem 0; color: var(--ink-soft); font-size: 0.94rem; }
+.step .code-hint {
+  display: block;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--rule);
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.step .code-hint strong { color: var(--ink-soft); font-weight: 600; }
+.step .insight {
+  margin-top: 0.75rem;
+  padding: 0.6rem 0.9rem;
+  background: var(--signal-soft);
+  border-left: 2px solid var(--signal);
+  border-radius: 0 4px 4px 0;
+  font-size: 0.88rem;
+  color: var(--ink);
+}
+.step .insight strong { color: var(--ink); }
+
+@media (max-width: 560px) {
+  .step { grid-template-columns: 2.5rem 1fr; gap: 0.8rem; }
+  .step-num { width: 2.1rem; height: 2.1rem; font-size: 0.9rem; }
+  .step-body { padding: 0.9rem 1rem; }
+}
+
+/* ---------- Pivot table ---------- */
+.pivot-wrap { overflow-x: auto; margin: 1.25rem 0; border-radius: var(--radius); border: 1px solid var(--rule); background: var(--surface); box-shadow: var(--shadow); }
+table.pivot {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  min-width: 640px;
+}
+.pivot thead th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  background: var(--surface-sunk);
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--rule);
+  white-space: nowrap;
+}
+.pivot thead th.dev { color: var(--muted); }
+.pivot thead th.test { color: var(--accent); }
+.pivot thead th.prod { color: var(--signal); }
+.pivot td, .pivot th.row-label {
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+  color: var(--ink-soft);
+}
+.pivot tr:last-child td, .pivot tr:last-child th { border-bottom: none; }
+.pivot th.row-label {
+  text-align: left;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--surface-sunk);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.pivot .yes { color: var(--accent); font-weight: 600; }
+.pivot .no  { color: var(--muted); }
+.pivot .warn { color: var(--signal); font-weight: 600; }
+
+/* ---------- File tree ---------- */
+.tree {
+  background: var(--code-bg);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  padding: 1.1rem 1.25rem;
+  overflow-x: auto;
+  font-family: "JetBrains Mono", Consolas, monospace;
+  font-size: 0.82rem;
+  line-height: 1.7;
+  color: var(--ink);
+  margin: 1.25rem 0;
+}
+.tree .dir { color: var(--accent); font-weight: 600; }
+.tree .lib { color: var(--ink); }
+.tree .note { color: var(--muted); font-family: "Segoe UI", "PingFang SC", sans-serif; font-size: 0.9em; padding-left: 0.6em; }
+.tree .highlight { color: var(--signal); font-weight: 600; }
+
+/* ---------- Table of contents ---------- */
+.toc {
+  background: var(--surface-sunk);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: clamp(2.5rem, 5vw, 3.5rem);
+}
+.toc .toc-title {
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  margin: 0 0 0.6rem;
+}
+.toc ol {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.4rem 1.2rem;
+  counter-reset: toc;
+}
+.toc li { counter-increment: toc; }
+.toc a {
+  display: block;
+  color: var(--ink-soft);
+  text-decoration: none;
+  font-size: 0.9rem;
+  padding: 0.15rem 0;
+  border-bottom: 1px solid transparent;
+  transition: color .15s, border-color .15s;
+}
+.toc a::before {
+  content: counter(toc, decimal-leading-zero);
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  font-size: 0.75rem;
+  margin-right: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.toc a:hover, .toc a:focus-visible {
+  color: var(--accent);
+  outline: none;
+}
+.toc a:focus-visible { border-bottom-color: var(--accent); }
+
+/* ---------- Bottom outro ---------- */
+.outro {
+  margin-top: clamp(3rem, 6vw, 5rem);
+  padding: 1.5rem 1.75rem;
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.outro p { color: var(--ink-soft); }
+.outro strong { color: var(--ink); }
+
+hr.divider {
+  border: none;
+  height: 1px;
+  background: var(--rule);
+  margin: 0;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+</style>
+
+<div class="page">
+
+  <header class="header">
+    <p class="kicker">CreoToolkit · 运行原理图解</p>
+    <h1 class="title">把 <em>.NET</em> 装进 <em>Creo</em> 里跑,<br>再让 <em>Creo</em> 反过来听 <em>.NET</em> 的话</h1>
+    <p class="lede">
+      Creo 是 C++ 世界,不认识 .NET。我们的插件要在 Creo 里跑起来,得把 .NET 运行时"手动"塞进去,
+      再让托管代码回头调 Creo 的 API。这一页把这条链路讲清楚,顺便回答一个高频问题——
+      我们的测试是怎么"告诉 Creo 该跑哪条命令"的。
+    </p>
+    <div class="meta-row">
+      <span><strong>读者:</strong> 想了解运行原理的用户</span>
+      <span><strong>阅读时长:</strong> 约 8 分钟</span>
+      <span><strong>详细契约:</strong> <code>docs/creo-host-loading.md</code></span>
+      <span><strong>流程图:</strong> <a href="diagrams/host-loading.drawio"><code>docs/diagrams/host-loading.drawio</code></a></span>
+    </div>
+  </header>
+
+  <nav class="toc" aria-label="目录">
+    <p class="toc-title">目录</p>
+    <ol>
+      <li><a href="#overview">一句话总览</a></li>
+      <li><a href="#modes">三种模式一表看穿</a></li>
+      <li><a href="#trigger">命令怎么被触发:便条机制</a></li>
+      <li><a href="#loading">8 步加载顺序图解</a></li>
+      <li><a href="#deploy">生产部署:每个 dll 住在哪</a></li>
+      <li><a href="#faults">每一步失败会怎样</a></li>
+    </ol>
+  </nav>
+
+  <!-- ================= §1 ================= -->
+  <section id="overview">
+    <div class="section-head">
+      <p class="kicker">§ 1  Big picture</p>
+      <h2><span class="num">01</span>一句话总览</h2>
+    </div>
+
+    <p>整条链路的精髓其实是一个 <strong>"回旋"</strong>——从 native 出发,拉起 .NET runtime,让 managed 代码接管命令注册,
+    然后 managed 里的 P/Invoke 又<em>反过来</em>调回同一个 native dll,再由它转发给 Creo。</p>
+
+    <div class="flow-diagram">
+      <div class="flow-side">
+        <p class="who">出发点 · Creo(C++)</p>
+        <div class="flow-line">
+          Creo 启动<br>
+          ↓ LoadLibrary<br>
+          <strong>NativeHost.dll</strong>
+        </div>
+      </div>
+
+      <div class="flow-arrow-h">
+        <span>手工拉起 CLR</span>
+        <span class="line"></span>
+      </div>
+
+      <div class="flow-side">
+        <p class="who signal">终点 · .NET 命令层</p>
+        <div class="flow-line">
+          Bootstrap.InitializeApp<br>
+          ↓ 注册命令<br>
+          <strong>用户/测试 触发</strong>
+        </div>
+      </div>
+    </div>
+
+    <p>触发链路上的信息传递,靠一张最朴素的 "纸条"——<strong>Windows 环境变量</strong>。
+    测试或者脚本在启动 Creo <em>之前</em> 把命令名写在纸条上,插件启动后自己去读,读到就跑,读不到就静静等用户点菜单。</p>
+
+    <div class="callout">
+      <strong>为什么这么设计?</strong> 环境变量是操作系统级基础设施,Creo 子进程会继承父进程的环境变量,
+      不需要额外的 pipe / RPC / 网络通道。开发/测试/生产三个模式共用<em>同一段</em>命令实现代码,
+      变的只是"要不要在纸条上写字"。
+    </div>
+  </section>
+
+  <!-- ================= §2 ================= -->
+  <section id="modes">
+    <div class="section-head">
+      <p class="kicker">§ 2  Modes</p>
+      <h2><span class="num">02</span>三种模式一表看穿</h2>
+      <p>开发 / 测试 / 生产三种场景,代码是同一份,变的只是外围。</p>
+    </div>
+
+    <div class="pivot-wrap">
+      <table class="pivot">
+        <thead>
+          <tr>
+            <th></th>
+            <th class="dev">开发模式<br><span style="font-weight:400;font-size:0.75rem;color:var(--muted)">调试用</span></th>
+            <th class="test">测试模式<br><span style="font-weight:400;font-size:0.75rem;color:var(--muted)">CI / 真实 Creo</span></th>
+            <th class="prod">生产模式<br><span style="font-weight:400;font-size:0.75rem;color:var(--muted)">客户装机</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th class="row-label">谁在跑</th>
+            <td>开发者本人</td>
+            <td>自动化测试</td>
+            <td>最终用户</td>
+          </tr>
+          <tr>
+            <th class="row-label">Creo 启动方式</th>
+            <td>Stage/Deploy 后运行 <code>start-&lt;app&gt;.bat</code></td>
+            <td>Harness 后台起</td>
+            <td>用户双击图标</td>
+          </tr>
+          <tr>
+            <th class="row-label"><code>CTK_APP_RUN_COMMAND</code></th>
+            <td class="no">不设</td>
+            <td class="yes">设(=命令名)</td>
+            <td class="no">不设</td>
+          </tr>
+          <tr>
+            <th class="row-label">命令怎么触发</th>
+            <td>你点菜单</td>
+            <td>managed Diagnostics 自动跑</td>
+            <td>用户点菜单</td>
+          </tr>
+          <tr>
+            <th class="row-label">有 GUI 吗</th>
+            <td>取决于 app（WinForms/Core）</td>
+            <td class="warn">通常使用 Core/nogui</td>
+            <td>取决于部署的 app</td>
+          </tr>
+          <tr>
+            <th class="row-label">Log 输出到</th>
+            <td><code>&lt;WorkDir&gt;\logs</code></td>
+            <td>Harness 指定的文件</td>
+            <td>launcher 指定的可写目录；否则走 DLL 相对 / <code>%LOCALAPPDATA%</code> 回退</td>
+          </tr>
+          <tr>
+            <th class="row-label">构建配置</th>
+            <td>Debug 或 Release Stage</td>
+            <td>Release</td>
+            <td>Release + 签名</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout signal">
+      <strong>关键观察:</strong> 自动诊断与用户点击共享<em>同一段</em>命令 dispatch/handler 实现，
+      因此适合验证业务路径；但真实菜单/Ribbon 可见性、Creo 版本 ABI、停止卸载和 GUI 行为仍需单独验收。
+    </div>
+  </section>
+
+  <!-- ================= §3 ================= -->
+  <section id="trigger">
+    <div class="section-head">
+      <p class="kicker">§ 3  Trigger</p>
+      <h2><span class="num">03</span>命令怎么被触发:便条机制</h2>
+      <p>测试进程和 Creo 里的插件不需要"实时对话"——一张写好命令名的纸条 + 一份写结果的小本本,就够了。</p>
+    </div>
+
+    <div class="analogy">
+      <span class="role">类比</span>
+      <h3>咖啡机的定时功能</h3>
+      <p>Harness 出门前在便条上写:"进屋后请去做 A 事,做完把每一步记在小本本上"。
+      Creo 里的插件一启动就去读便条,照着做,结果全部写进小本本。Harness 每秒偷看一次小本本,
+      看见"我干完了"那句就把整个本子抄回来给测试代码断言。</p>
+    </div>
+
+    <p>这个链路在代码里是这么四行接力的:</p>
+
+    <div>
+      <span class="code-caption">端 A · 测试进程写便条</span>
+<pre><code>// tests\CreoToolkit.RealCreoIntegration\CreoTestHarness.cs
+["CTK_APP_RUN_COMMAND"] = commandName,
+//   ↑ 就在这里写:要跑哪条命令</code></pre>
+    </div>
+
+    <div>
+      <span class="code-caption">端 B · Creo 里的插件读便条并触发</span>
+<pre><code>// src\CreoToolkit.Diagnostics\DiagnosticsStartupOptions.cs
+var runCommand = NullIfWhiteSpace(readEnvironment(CtkEnv.AppRunCommand));
+// src\CreoToolkit.Diagnostics\StartupDiagnostics.cs
+if (options.DiagnosticCommand is { } command)   //  ← 便条有字才跑
+{
+    var rc = appHost.RunCommandForDiagnostics(command);
+    log($"InitializeApp: diagnostic command '{command}' rc={rc}.");
+}
+// 便条没字 → 跳过整段 → 命令注册好,静静等用户点菜单</code></pre>
+    </div>
+
+    <div>
+      <span class="code-caption">端 A · 测试进程偷看小本本</span>
+<pre><code>// tests\CreoToolkit.RealCreoIntegration\CreoTestHarness.cs
+|| content.Contains($"diagnostic command '{commandName}' rc=", ...)
+//   ↑ 看见 "rc=" 就知道插件干完了,可以停止轮询</code></pre>
+    </div>
+
+    <div>
+      <span class="code-caption">端 B · 命令分发(按名找命令)</span>
+<pre><code>// src\CreoToolkit.App\CommandDispatchRuntime.cs
+internal int InvokeByName(string name)
+{
+    foreach (var command in GetCommands())
+    {
+        if (string.Equals(command.Name, name, StringComparison.Ordinal))
+            return Dispatch(command.Token);  // ← 与用户点击进入同一 callback
+    }
+    return 2;  // 找不到命令名
+}</code></pre>
+    </div>
+
+    <div class="callout">
+      <strong>为什么开发模式不受影响?</strong> DiagnosticsStartupOptions 对 <code>CTK_APP_RUN_COMMAND</code> 的判空就是分岔口:
+      环境变量有值 → 自动跑;环境变量为空 → 命令注册好后闭嘴,等用户手动。<em>没有</em> 任何
+      <code>if (isTestMode)</code> 之类的分支——同一段代码,两种入口。
+    </div>
+  </section>
+
+  <!-- ================= §4 ================= -->
+  <section id="loading">
+    <div class="section-head">
+      <p class="kicker">§ 4  Loading order</p>
+      <h2><span class="num">04</span>8 步加载顺序图解</h2>
+      <p>从 Creo 双击启动到我们插件的命令注册完成,系统里其实按下面这个精确顺序发生了 8 件事。</p>
+    </div>
+
+    <div class="timeline">
+
+      <div class="step">
+        <div class="step-numcol">
+          <div class="step-num">1</div>
+          <div class="step-connector"></div>
+        </div>
+        <div class="step-body">
+          <div class="step-head">
+            <h3 class="step-title">Creo 主程序启动</h3>
+            <span class="by creo">By: 操作系统</span>
+          </div>
+          <p>Windows 启动 <code>parametric.exe</code>,Creo 主进程跑起来。此时它还不知道我们插件的存在。</p>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-numcol">
+          <div class="step-num">2</div>
+          <div class="step-connector"></div>
+        </div>
+        <div class="step-body">
+          <div class="step-head">
+            <h3 class="step-title">Creo 读 <code>protk.dat</code>,找到我们的插件</h3>
+            <span class="by creo">By: Creo</span>
+          </div>
+          <p>launcher 在选定的 Creo 工作目录写入 <code>protk.dat</code>——这是本次会话的插件注册文件,里面写了
+          NativeHost 的绝对路径和当前 app 的文本资源目录。仓库中的 <code>protk.host.dat</code> 只是占位模板,不能直接使用。</p>
+          <span class="code-hint"><strong>关键文件:</strong> &lt;WorkDir&gt;\protk.dat（由 deploy\launcher\launch.ps1 物化）</span>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-numcol">
+          <div class="step-num">3</div>
+          <div class="step-connector"></div>
+        </div>
+        <div class="step-body">
+          <div class="step-head">
+            <h3 class="step-title">Creo 用 <code>LoadLibrary</code> 加载 <code>NativeHost.dll</code></h3>
+            <span class="by ours">By: 我们的代码(native)</span>
+          </div>
+          <p>这是我们的 C++ 插件。Windows 加载 dll 时会自动触发 <code>DllMain</code>——里面只做<em>极简</em>的启动日志(为了防御性诊断,一切写文件、不做复杂 IO)。</p>
+          <span class="code-hint"><strong>关键文件:</strong> src\CreoToolkit.NativeHost\src\host_entry.cpp</span>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-numcol">
+          <div class="step-num">4</div>
+          <div class="step-connector"></div>
+        </div>
+        <div class="step-body">
+          <div class="step-head">
+            <h3 class="step-title">Creo 调 <code>user_initialize()</code>(主线程)</h3>
+            <span class="by ours">By: 我们的代码(native)</span>
+          </div>
+          <p>这是 Pro/Toolkit 规定的插件入口。我们在里面做四件事:</p>
+          <p>① 初始化 session 日志目录、retention、trace id 和 ETW；<br>
+          ② <code>ctk_toolkit_touch()</code> 验证当前 DLL 已由 Creo 正确注册并可调用 Toolkit；<br>
+          ③ 把当前 dll 路径写进环境变量 <code>CTK_HOST_NATIVE_DLL</code>(<strong>这一步很关键</strong>,为后面第 8 步做准备);<br>
+          ④ 校验 <code>CTK_HOST_METHOD</code> 后调用 <code>invoke_managed()</code>。模型预载已经移到 managed Diagnostics。</p>
+          <div class="insight"><strong>洞察:</strong> 到这里为止,一切都是 native C++ 的世界。.NET 还没进场。</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-numcol">
+          <div class="step-num">5</div>
+          <div class="step-connector"></div>
+        </div>
+        <div class="step-body">
+          <div class="step-head">
+            <h3 class="step-title">经 mscoree 启动或附加 CLR 4（<code>v4.0.30319</code>）</h3>
+            <span class="by ours">By: 我们的代码(native)</span>
+          </div>
+          <p>NativeHost 调用 <code>CLRCreateInstance</code> → <code>GetRuntime(v4.0.30319)</code> →
+          <code>ICLRRuntimeHost::Start</code>。进程里若已有 CLR 4 则附加，不 <code>Stop()</code>。
+          不加载 <code>nethost.dll</code> / <code>hostfxr.dll</code>。</p>
+          <div class="insight"><strong>部署铁律:</strong> 客户机需要 x64 .NET Framework 4.7.2+（Creo 4 年代 Windows 通常已带）。
+          不部署 <code>nethost.dll</code>。</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-numcol">
+          <div class="step-num">6</div>
+          <div class="step-connector"></div>
+        </div>
+        <div class="step-body">
+          <div class="step-head">
+            <h3 class="step-title"><code>ExecuteInDefaultAppDomain</code> 加载 <code>Host.dll</code></h3>
+            <span class="by runtime">By: CLR 4</span>
+          </div>
+          <p>NativeHost 在默认 AppDomain 调用 <code>CreoToolkit.Host.Bootstrap</code> 的
+          <code>public static int Method(string)</code>（默认 <code>InitializeApp</code>）。
+          不需要 <code>runtimeconfig.json</code>。</p>
+          <p>从这一步开始,进程里同时有了 C++ 世界和 .NET Framework 世界。</p>
+        </div>
+      </div>
+
+      <div class="step pivot">
+        <div class="step-numcol">
+          <div class="step-num">7</div>
+          <div class="step-connector"></div>
+        </div>
+        <div class="step-body">
+          <div class="step-head">
+            <h3 class="step-title">调 <code>Bootstrap.InitializeApp()</code>——从 native 跨到 managed</h3>
+            <span class="by ours">By: 我们的代码(managed)</span>
+          </div>
+          <p>这是整条链路的<em>转折点</em>。控制权从 C++ 交给了 C#。<code>InitializeApp</code> 里做几件大事:</p>
+          <p>① <code>CreoSession.Attach()</code> 并校验 ABI；<br>
+          ② 可选运行 managed Diagnostics 的模型准备；<br>
+          ③ 在受限根目录中把 sample app <code>LoadFrom</code> 进默认 AppDomain（<code>AssemblyResolve</code> 共享 Host/Sdk/Interop）；<br>
+          ④ 注册命令/菜单,调用 <code>ICreoApplication.OnInitialize</code>；<br>
+          ⑤ 如设置 <code>CTK_APP_RUN_COMMAND</code>,再按名走与用户点击相同的 dispatch 路径。</p>
+          <span class="code-hint"><strong>关键文件:</strong> src\CreoToolkit.Host\Bootstrap.cs、CreoApplicationLoader.cs；src\CreoToolkit.App\CreoAppHost.cs</span>
+          <div class="insight"><strong>洞察:</strong> 这一步之后,插件就算"就绪"了,菜单已经在 Creo 里挂好,等待被点。</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-numcol">
+          <div class="step-num">8</div>
+        </div>
+        <div class="step-body">
+          <div class="step-head">
+            <h3 class="step-title">命令执行:managed 反向调 native,再进 Creo</h3>
+            <span class="by ours">By: 我们的代码(全链路)</span>
+          </div>
+          <p>用户点菜单(或环境变量自动触发)时,managed 命令实现会走这么一条路:</p>
+<pre style="margin:0.5rem 0"><code>[DllImport("CreoToolkit.NativeHost")]  // 已由 Creo LoadLibrary 的同一 DLL
+       ↓
+NativeHost.dll 里的 Pro* / Ctk_* 转发
+       ↓
+Creo 真跑</code></pre>
+          <div class="insight"><strong>洞察:</strong> 真正被加载的一直只有<em>一个</em>native dll:
+          <code>CreoToolkit.NativeHost.dll</code>。P/Invoke 绑到这个已加载模块，不需要 sidecar 或
+          <code>DllImportResolver</code>。</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ================= §5 ================= -->
+  <section id="deploy">
+    <div class="section-head">
+      <p class="kicker">§ 5  Deployment</p>
+      <h2><span class="num">05</span>生产部署:每个 dll 住在哪</h2>
+      <p>客户装机后,磁盘上文件的物理排布决定了上面每一步能不能顺利发生。</p>
+    </div>
+
+    <div class="tree">
+<span class="dir">CreoToolkit 部署目录\</span>  <span class="note">(可以是任意路径)</span>
+  start.bat / start-&lt;app&gt;.bat
+  <span class="dir">native\</span>
+    <span class="highlight">CreoToolkit.NativeHost.dll</span>        <span class="note">← 第 3 步 Creo 加载</span>
+    protk.host.dat                      <span class="note">← 无机器路径模板</span>
+  <span class="dir">managed\</span>
+    CreoToolkit.Host.dll                <span class="note">← 第 6 步 ExecuteInDefaultAppDomain</span>
+    CreoToolkit.App.dll / Sdk.dll / Interop.dll / Diagnostics.dll / Polyfills.dll
+  <span class="dir">apps\&lt;app-name&gt;\</span>
+    app.json                            <span class="note">← type / assembly / msgFile</span>
+    CreoToolkit.Samples.ProtkAppls.*.dll
+    CreoToolkit.Samples.PtDimension.dll <span class="note">← module dll</span>
+    <span class="dir">text\usascii\</span>
+      protk_samples.txt                 <span class="note">← 命令菜单文字资源</span>
+
+<span class="dir">Creo 工作目录\</span>
+  protk.dat                             <span class="note">← launcher 从模板物化绝对 exec_file/text_dir</span>
+  logs\                                <span class="note">← 本次 session 的 native/managed 日志</span>
+
+<span class="dir">Windows 系统\</span>
+  .NET Framework 4.7.2+ (clr.dll v4.0.30319)  <span class="note">← 第 5 步 mscoree 启动/附加</span>
+
+<span class="dir">用户目录回退\</span>
+  %LOCALAPPDATA%\CreoToolkit\logs\host\ <span class="note">← 未显式配置且 DLL 相对目录不可用时</span>
+  &lt;vendor&gt;\dumps\                       <span class="note">← WER 崩溃转储</span>
+    </div>
+
+    <div class="callout">
+      <strong>生产模式独有的关注:</strong> ① 客户机需 x64 .NET Framework 4.7.2+；
+      ② native/managed dll 建议代码签名,防杀软误杀;③ 日志目录必须是普通用户可写目录：launcher 默认使用
+      <code>&lt;WorkDir&gt;\logs</code>，未显式配置时 NativeHost 才按 DLL 相对目录和 <code>%LOCALAPPDATA%</code> 回退。
+    </div>
+  </section>
+
+  <!-- ================= §6 ================= -->
+  <section id="faults">
+    <div class="section-head">
+      <p class="kicker">§ 6  Fault modes</p>
+      <h2><span class="num">06</span>每一步失败会怎样</h2>
+      <p>下表是这条链路上曾经真实踩过、都留下疤痕的坑。看到症状时,直接对号入座。</p>
+    </div>
+
+    <div class="pivot-wrap">
+      <table class="pivot">
+        <thead>
+          <tr>
+            <th style="width:5rem">步</th>
+            <th>症状</th>
+            <th>已知原因</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th class="row-label">3</th>
+            <td>Creo 报"无法加载 protk 应用"</td>
+            <td>dll 依赖缺失 / 路径错 / 32-64 位不对</td>
+          </tr>
+          <tr>
+            <th class="row-label">4</th>
+            <td><code>user_initialize</code> 返回非零,Creo 报应用初始化失败</td>
+            <td class="warn"><code>ctk_toolkit_touch</code> 失败、<code>text_dir</code> 无效、managed entry 不在白名单或后续初始化失败；查 session JSONL</td>
+          </tr>
+          <tr>
+            <th class="row-label">5</th>
+            <td>日志出现 CLR 启动失败 / <code>ExecuteInDefaultAppDomain failed</code>,插件初始化失败</td>
+            <td>客户机缺 x64 .NET Framework 4.7.2+，或 Host.dll 路径未解析到</td>
+          </tr>
+          <tr>
+            <th class="row-label">6</th>
+            <td>整个 Creo <strong>hang 死</strong></td>
+            <td class="warn">不要再拆第二颗 native sidecar 在 <code>user_initialize</code> 阶段调 Pro*；P/Invoke 必须打到已加载的 NativeHost</td>
+          </tr>
+          <tr>
+            <th class="row-label">7</th>
+            <td>找不到 <code>CreoToolkit.Host.dll</code></td>
+            <td><code>CTK_HOST_ASSEMBLY</code> 未设且 <code>managed/</code> 相对 NativeHost 的布局不对</td>
+          </tr>
+          <tr>
+            <th class="row-label">8</th>
+            <td><code>DllNotFoundException: CreoToolkit.NativeHost</code></td>
+            <td class="warn">Creo 尚未 LoadLibrary NativeHost，或 PATH/<code>SetDllDirectory</code> 未指到 native 目录</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout signal">
+      <strong>这张表就是 P1 阶段几百个小时踩出来的伤疤。</strong>
+      现在链路能稳定跑起来的每一步背后,都对应着 memory 里的一条 lesson。
+    </div>
+  </section>
+
+  <hr class="divider">
+
+  <div class="outro">
+    <p><strong>三种模式,一条链路,一份代码。</strong> 从 Creo 启动到我们插件命令就绪,系统里发生的 8 件事,
+    在开发/测试/生产三种场景下共享同一套注册和 dispatch 实现——变的是环境变量里的"纸条"要不要写字、
+    managed Diagnostics 是否准备模型、日志写到哪里、是否使用 GUI app。命令 Gate 能证明 handler 路径，
+    但不能替代真实 Creo 菜单/Ribbon、停止卸载和版本兼容性验收。</p>
+  </div>
+
+</div>

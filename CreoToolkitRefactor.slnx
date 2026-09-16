@@ -1,0 +1,50 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/CreoToolkit.Polyfills/CreoToolkit.Polyfills.csproj" />
+    <Project Path="src/CreoToolkit.Agent/CreoToolkit.Agent.csproj" />
+    <Project Path="src/CreoToolkit.Agent.Client/CreoToolkit.Agent.Client.csproj" />
+    <Project Path="src/CreoToolkit.App/CreoToolkit.App.csproj" />
+    <Project Path="src/CreoToolkit.Diagnostics/CreoToolkit.Diagnostics.csproj" />
+    <Project Path="src/CreoToolkit.Host/CreoToolkit.Host.csproj" />
+    <Project Path="src/CreoToolkit.Interop/CreoToolkit.Interop.csproj" />
+    <Project Path="src/CreoToolkit.NativeAbi/CreoToolkit.NativeAbi.Probes.vcxproj" Id="d5a69c96-1bce-4c9a-ae97-f75d9b66707b" />
+    <Project Path="src/CreoToolkit.NativeHost/CreoToolkit.NativeHost.vcxproj" Id="b953c16c-9c27-48aa-a0cb-1c4e21aa3711" />
+    <Project Path="src/CreoToolkit.Sdk/CreoToolkit.Sdk.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CreoToolkit.NetFxProbeApp/CreoToolkit.NetFxProbeApp.csproj" />
+    <Project Path="tests/CreoToolkit.Host.Tests/CreoToolkit.Host.Tests.csproj" />
+    <Project Path="tests/CreoToolkit.Sdk.Tests/CreoToolkit.Sdk.Tests.csproj" />
+    <Project Path="tests/CreoToolkit.Samples.ProtkAppls.WinForms.Tests/CreoToolkit.Samples.ProtkAppls.WinForms.Tests.csproj" />
+  </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/CreoToolkit.Samples.ProtkAppls.Core/CreoToolkit.Samples.ProtkAppls.Core.csproj" />
+    <Project Path="samples/CreoToolkit.Samples.ProtkAppls.WinForms/CreoToolkit.Samples.ProtkAppls.WinForms.csproj" />
+    <Project Path="samples/CreoToolkit.Samples.Shell.WinForms/CreoToolkit.Samples.Shell.WinForms.csproj" />
+    <Project Path="samples/CreoToolkit.Samples.Shell.Wpf/CreoToolkit.Samples.Shell.Wpf.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.PtBasic/CreoToolkit.Samples.PtBasic.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.PtSimpleAsync/CreoToolkit.Samples.PtSimpleAsync.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.PtDbase/CreoToolkit.Samples.PtDbase.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.PtParams/CreoToolkit.Samples.PtParams.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.PtFeature/CreoToolkit.Samples.PtFeature.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.PtSelect/CreoToolkit.Samples.PtSelect.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.PtDimension/CreoToolkit.Samples.PtDimension.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.PtGeom/CreoToolkit.Samples.PtGeom.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.PtAsm/CreoToolkit.Samples.PtAsm.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.PtDrawing/CreoToolkit.Samples.PtDrawing.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.PtInstall/CreoToolkit.Samples.PtInstall.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.PtUserguide/CreoToolkit.Samples.PtUserguide.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.AgentDemo/CreoToolkit.Samples.AgentDemo.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.ModelInspectDemo/CreoToolkit.Samples.ModelInspectDemo.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.PtPart/CreoToolkit.Samples.PtPart.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.PtSolid/CreoToolkit.Samples.PtSolid.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.PtLayer/CreoToolkit.Samples.PtLayer.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.HostProbe/CreoToolkit.Samples.HostProbe.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.PtParamsUnits/CreoToolkit.Samples.PtParamsUnits.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.ExtCreoMenu/CreoToolkit.Samples.ExtCreoMenu.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.PtUdfDemo/CreoToolkit.Samples.PtUdfDemo.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.ElemTreeWalk/CreoToolkit.Samples.ElemTreeWalk.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.ElemTreeExport/CreoToolkit.Samples.ElemTreeExport.csproj" />
+    <Project Path="samples/Modules/CreoToolkit.Samples.ModelSurvey/CreoToolkit.Samples.ModelSurvey.csproj" />
+  </Folder>
+</Solution>

@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <!-- ReadSVal/ToProParamValue 需访问 fixed ushort[81] s_val(unsafe struct union) -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CreoToolkit.Interop\CreoToolkit.Interop.csproj" />
+  </ItemGroup>
+
+  <!-- 测试可见: L3 的 native 接缝(ICreoNative)与对象模型 internal 构造对测试开放, 业务用户不可见。
+       Samples.ProtkAppls.WinForms.Tests 直接见 internal: FakeCreoNative implements internal ICreoNative,
+       sample 测试需 FakeSessions.New()/FakeCreoNative 字段喂伪 native 状态以脱 Creo 单测,
+       属合理"测试 hook"需求(非"sample 反向定义 SDK 边界")。 -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="CreoToolkit.Sdk.Tests" />
+    <InternalsVisibleTo Include="CreoToolkit.Interop.Tests" />
+    <InternalsVisibleTo Include="CreoToolkit.Host" />
+    <InternalsVisibleTo Include="CreoToolkit.Diagnostics" />
+    <InternalsVisibleTo Include="CreoToolkit.TestSupport" />
+    <InternalsVisibleTo Include="CreoToolkit.Samples.ProtkAppls.WinForms.Tests" />
+    <InternalsVisibleTo Include="CreoToolkit.Host.Tests" />
+    <InternalsVisibleTo Include="CreoToolkit.Agent.Tests" />
+    <!-- Agent 层需 CreoThread 主线程门断言 + TrackResource 挂 session 释放链;仅 internal 接缝,不动 public 面 -->
+    <InternalsVisibleTo Include="CreoToolkit.Agent" />
+  </ItemGroup>
+
+</Project>

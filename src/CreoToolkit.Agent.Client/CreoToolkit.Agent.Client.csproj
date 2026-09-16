@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- LangVersion/Nullable/ImplicitUsings/Platforms/CodePage 由 Directory.Build.props 统一提供。 -->
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+  </PropertyGroup>
+</Project>

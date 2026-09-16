@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion Condition="'$(VisualStudioVersion)' == '14.0'">14.0</VCProjectVersion>
+    <VCProjectVersion Condition="'$(VisualStudioVersion)' != '14.0'">17.0</VCProjectVersion>
+    <Keyword>MakeFileProj</Keyword>
+    <ProjectGuid>{B953C16C-9C27-48AA-A0CB-1C4E21AA3711}</ProjectGuid>
+    <RootNamespace>CreoToolkitNativeHost</RootNamespace>
+  </PropertyGroup>
+  <PropertyGroup>
+    <HasCppTargets Condition="Exists('$(VCTargetsPath)\Microsoft.Cpp.Default.props') and Exists('$(VCTargetsPath)\Microsoft.Cpp.targets')">true</HasCppTargets>
+  </PropertyGroup>
+  <Target Name="Build" Condition="'$(HasCppTargets)' != 'true'">
+    <Message Text="Skipping native VS wrapper under dotnet CLI." Importance="High" />
+  </Target>
+  <Target Name="Clean" Condition="'$(HasCppTargets)' != 'true'">
+    <Message Text="Skipping native VS wrapper clean under dotnet CLI." Importance="High" />
+  </Target>
+  <Target Name="Rebuild" DependsOnTargets="Clean;Build" Condition="'$(HasCppTargets)' != 'true'" />
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" Condition="'$(HasCppTargets)' == 'true'" />
+  <PropertyGroup Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <PlatformToolset Condition="'$(VisualStudioVersion)' == '14.0'">v140</PlatformToolset>
+    <PlatformToolset Condition="'$(VisualStudioVersion)' != '14.0'">v143</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" Condition="'$(HasCppTargets)' == 'true'" />
+  <PropertyGroup Condition="'$(MSBuildRuntimeType)' == 'Core'">
+    <NMakeBuildCommandLine>echo Skipping native VS wrapper under dotnet CLI.</NMakeBuildCommandLine>
+    <NMakeReBuildCommandLine>echo Skipping native VS wrapper under dotnet CLI.</NMakeReBuildCommandLine>
+    <NMakeCleanCommandLine>echo Skipping native VS wrapper under dotnet CLI.</NMakeCleanCommandLine>
+    <NMakeOutput>$(ProjectDir)out\CreoToolkit.NativeHost.dll</NMakeOutput>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(MSBuildRuntimeType)' != 'Core'">
+    <NMakeBuildCommandLine>cd /d "$(ProjectDir)..\.." &amp;&amp; build_native.cmd CreoToolkit.NativeHost $(Configuration)</NMakeBuildCommandLine>
+    <NMakeReBuildCommandLine>cd /d "$(ProjectDir)..\.." &amp;&amp; build_native.cmd CreoToolkit.NativeHost $(Configuration)</NMakeReBuildCommandLine>
+    <NMakeCleanCommandLine>cd /d "$(ProjectDir)..\.." &amp;&amp; if exist cmake cmake --build cmake --target clean --config $(Configuration)</NMakeCleanCommandLine>
+    <NMakeOutput>$(ProjectDir)out\CreoToolkit.NativeHost.dll</NMakeOutput>
+  </PropertyGroup>
+  <ItemGroup>
+    <ClCompile Include="src\*.cpp" />
+    <None Include="protk.host.dat" />
+    <None Include="README.md" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" Condition="'$(HasCppTargets)' == 'true'" />
+  <Target Name="VSTest">
+    <Message Text="Skipping native VS wrapper tests." Importance="High" />
+  </Target>
+</Project>

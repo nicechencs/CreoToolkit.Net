@@ -1,0 +1,1041 @@
+PT_BASIC_STATUS
+Current Object Status
+#
+#
+PT_BASIC_STATUS_HELP
+Show current model name and extension
+#
+#
+PT_SIMPLE_ASYNC_RETRIEVE_SAVE
+Retrieve and Save Model
+#
+#
+PT_SIMPLE_ASYNC_RETRIEVE_SAVE_HELP
+Retrieve a named model and save it
+#
+#
+PT_DBASE_RETRIEVE_INFO
+Retrieve Model Info
+#
+#
+PT_DBASE_RETRIEVE_INFO_HELP
+Retrieve a named model and show its name, extension, and type
+#
+#
+PT_DBASE_REGENERATE
+Regenerate Model
+#
+#
+PT_DBASE_REGENERATE_HELP
+Retrieve a named model and regenerate it
+#
+#
+PT_DBASE_SAVE
+Save Dbase Model
+#
+#
+PT_DBASE_SAVE_HELP
+Retrieve a named model and save it through the dbase sample path
+#
+#
+PT_DBASE_ERASE
+Erase Dbase Model
+#
+#
+PT_DBASE_ERASE_HELP
+Retrieve a named model and erase it from session memory
+#
+#
+PT_DBASE_COPY
+Copy Dbase Model
+#
+#
+PT_DBASE_COPY_HELP
+Retrieve a named model, copy it in session, then erase the copy
+#
+#
+PT_DBASE_ORIGIN
+Show Model Origin
+#
+#
+PT_DBASE_ORIGIN_HELP
+Retrieve a named model and show its disk origin path
+#
+#
+PT_DBASE_COMMON_NAME
+Show Model Common Name
+#
+#
+PT_DBASE_COMMON_NAME_HELP
+Retrieve a named model and show its PDM common name
+#
+#
+PT_DBASE_DEPENDENCIES
+List Model Dependencies
+#
+#
+PT_DBASE_DEPENDENCIES_HELP
+Retrieve a named model and list its first-level dependencies
+#
+#
+PT_DBASE_DISPLAY
+Display Dbase Model
+#
+#
+PT_DBASE_DISPLAY_HELP
+Retrieve a named model and actively display it via ProMdlDisplay
+#
+#
+PT_DBASE_OUTLINE
+Show Model Outline
+#
+#
+PT_DBASE_OUTLINE_HELP
+Retrieve a named model and show its regeneration bounding box
+#
+#
+PT_DBASE_MASS_PROPS
+Show Mass Properties
+#
+#
+PT_DBASE_MASS_PROPS_HELP
+Retrieve a named model and show its mass properties (volume, area, density, mass, center of gravity)
+#
+#
+PT_DBASE_CONFIG_OPTIONS
+List Config Option Values
+#
+#
+PT_DBASE_CONFIG_OPTIONS_HELP
+List values of a session-level config option (search_path) via ProConfigoptArrayGet
+#
+#
+PT_PARAMS_LIST
+List Model Parameters
+#
+#
+PT_PARAMS_LIST_HELP
+List current model parameters
+#
+#
+PT_PARAMS_PAGE
+List Parameter Page
+#
+#
+PT_PARAMS_PAGE_HELP
+Retrieve a named model and list the first page of parameters
+#
+#
+PT_PARAMS_ROUNDTRIP
+Parameter Round-trip
+#
+#
+PT_PARAMS_ROUNDTRIP_HELP
+Set and find a model parameter
+#
+#
+PT_PARAMS_DELETE_ROUNDTRIP
+Parameter Delete Round-trip
+#
+#
+PT_PARAMS_DELETE_ROUNDTRIP_HELP
+Set, find, delete, and verify a model parameter
+#
+#
+PT_PARAMS_DESIGNATION_ROUNDTRIP
+Parameter Designation Round-trip
+#
+#
+PT_PARAMS_DESIGNATION_ROUNDTRIP_HELP
+Add, verify, remove, and verify a model parameter designation
+#
+#
+PT_PARAMS_RESET_ROUNDTRIP
+Parameter Reset Round-trip
+#
+#
+PT_PARAMS_RESET_ROUNDTRIP_HELP
+Set, change, reset, and verify a model parameter
+#
+#
+PT_FEATURE_WALK
+Walk Feature Element Tree
+#
+#
+PT_FEATURE_WALK_HELP
+Read first feature and walk its element tree
+#
+#
+PT_FEATURE_LIST
+List All Features
+#
+#
+PT_FEATURE_LIST_HELP
+List all feature IDs from the configured model
+#
+#
+PT_FEATURE_DELETE
+Delete First Feature
+#
+#
+PT_FEATURE_DELETE_HELP
+Delete the first feature from the configured model (CLIP mode)
+#
+#
+PT_SELECT_COPIES
+Selection Owned Copies
+#
+#
+PT_SELECT_COPIES_HELP
+Create owned selection copies for the configured model
+#
+#
+PT_SELECT_HIGHLIGHT_FIRST
+Highlight First Selection
+#
+#
+PT_SELECT_HIGHLIGHT_FIRST_HELP
+Create owned selection copies and highlight the first copy
+#
+#
+PT_SELECT_UNHIGHLIGHT_FIRST
+Unhighlight First Selection
+#
+#
+PT_SELECT_UNHIGHLIGHT_FIRST_HELP
+Create owned selection copies, highlight the first copy, then unhighlight it
+#
+#
+PT_SELECT_DISPLAY_FIRST
+Display First Selection
+#
+#
+PT_SELECT_DISPLAY_FIRST_HELP
+Create owned selection copies and display the first copy
+#
+#
+PT_INSTALL_CHECK
+Install Check
+#
+#
+PT_INSTALL_CHECK_HELP
+Verify command registration and message display for the install-test sample
+#
+#
+PT_USERGUIDE_MAIN
+User Guide Main
+#
+#
+PT_USERGUIDE_MAIN_HELP
+Show top-level User Guide sample sections
+#
+#
+PT_USERGUIDE_MESSAGE_FORMAT
+User Guide Message Format
+#
+#
+PT_USERGUIDE_MESSAGE_FORMAT_HELP
+Format User Guide message values without interactive input
+#
+#
+PT_USERGUIDE_MODEL_LAYER_SCAN
+User Guide Model Layer Scan
+#
+#
+PT_USERGUIDE_MODEL_LAYER_SCAN_HELP
+Retrieve a model and list layer names
+#
+#
+PT_USERGUIDE_LAYER_ROUNDTRIP
+User Guide Layer Round-trip
+#
+#
+PT_USERGUIDE_LAYER_ROUNDTRIP_HELP
+Create and delete a temporary model layer
+#
+#
+PT_USERGUIDE_LAYER_DISPLAY_ROUNDTRIP
+User Guide Layer Display Round-trip
+#
+#
+PT_USERGUIDE_LAYER_DISPLAY_ROUNDTRIP_HELP
+Change and restore a temporary layer display status
+#
+#
+PT_USERGUIDE_LAYER_FEATURE_ROUNDTRIP
+User Guide Layer Feature Round-trip
+#
+#
+PT_USERGUIDE_LAYER_FEATURE_ROUNDTRIP_HELP
+Add the first feature to a temporary layer and verify it
+#
+#
+PT_USERGUIDE_WINDOW_REPAINT
+User Guide Window Repaint
+#
+#
+PT_USERGUIDE_WINDOW_REPAINT_HELP
+Repaint the current Creo window through the User Guide sample path
+#
+#
+PT_PARAMS_UPSERT_SCAN
+Upsert Sample Parameter and Scan
+#
+#
+PT_PARAMS_UPSERT_SCAN_HELP
+Upsert CTK_SAMPLE_PARAM string then list all model parameters (port of UgParamFeatLabel.c)
+#
+#
+PT_PARAMS_FILTER_PREFIX
+Filter Parameters by Name Prefix
+#
+#
+PT_PARAMS_FILTER_PREFIX_HELP
+List model parameters whose names start with CTK_ (port of TestParams.c)
+#
+#
+PT_PARAMS_FILTER_TYPE
+Filter Parameters by Type
+#
+#
+PT_PARAMS_FILTER_TYPE_HELP
+List model string/integer parameters separately (port of TestParams.c)
+#
+#
+PT_DIMENSION_LIST
+List Solid Dimensions
+#
+#
+PT_DIMENSION_LIST_HELP
+List solid dimension IDs and names via ProUtilCollectDimension equivalent (port of TestDimension.c)
+#
+#
+PT_DIMENSION_VALUES
+List Solid Dimension Values
+#
+#
+PT_DIMENSION_VALUES_HELP
+List solid dimension IDs, values, type codes, and display text (port of TestDimension.c)
+#
+#
+PT_DIMENSION_LIST_WITH_REFDIMS
+List Solid Dimensions and Refdims
+#
+#
+PT_DIMENSION_LIST_WITH_REFDIMS_HELP
+List solid dimensions plus reference dimensions via ProUtilCollectDimension equivalent (port of TestDimension.c)
+#
+#
+PT_DIMENSION_DRAWING_LIST
+List Drawing Dimensions
+#
+#
+PT_DIMENSION_DRAWING_LIST_HELP
+List drawing dimension IDs and names via ProDrawingDimensionVisit equivalent (port of TestDimension.c)
+#
+#
+PT_GTOL_CREATE_ROUNDTRIP
+GTol Create Roundtrip
+#
+#
+PT_GTOL_CREATE_ROUNDTRIP_HELP
+Create FLATNESS GTol on model, read back type/value, then delete (annotation write path validation)
+#
+#
+PT_GTOL_ATTACH_MAKE_DIM
+Preview GTol Attach Make-Dim Info
+#
+#
+PT_GTOL_ATTACH_MAKE_DIM_HELP
+Prepare GTol attach at (0,0,0) and read make-dim info via ProGtolAttachMakeDimGet (materializes flat-to-screen annotation plane handle; persistence unverified)
+#
+#
+PT_DIMENSION_ATTACHMENTS
+Dump Solid Dimension Attachments
+#
+#
+PT_DIMENSION_ATTACHMENTS_HELP
+Read attachments (annotation plane + attach pair count + senses) for each solid dimension via ProDimensionAttachmentsGet
+#
+#
+PT_DIMENSION_DRAWING_ATTACHMENTS
+Dump Drawing Dimension Attachments
+#
+#
+PT_DIMENSION_DRAWING_ATTACHMENTS_HELP
+Read drawing dimension attachments (attach pair count + senses) via ProDrawingDimAttachpointsGet
+#
+#
+PT_DIMENSION_DRAWING_CREATE_ROUNDTRIP
+Drawing Dimension Create Roundtrip
+#
+#
+PT_DIMENSION_DRAWING_CREATE_ROUNDTRIP_HELP
+Create a vertical drawing dimension (datum point to csys) via ProDrawingDimensionCreate, read back attachments, then delete it
+#
+#
+PT_DIMENSION_DRAWING_ORDINATE_ROUNDTRIP
+Drawing Dimension Ordinate Roundtrip
+#
+#
+PT_DIMENSION_DRAWING_ORDINATE_ROUNDTRIP_HELP
+Create two vertical drawing dimensions, convert one to ordinate + baseline via ProDrawingOrdbaselineCreate, convert the other via ProDrawingDimToOrdinate, read back with ProDrawingDimIsOrdinate, then delete
+#
+#
+PT_GEOM_LIST_AXES
+List Solid Axes
+#
+#
+PT_GEOM_LIST_AXES_HELP
+List axis names via ProUtilCollectSolidAxis equivalent (port of TestGeom.c)
+#
+#
+PT_GEOM_LIST_CSYS
+List Solid Coordinate Systems
+#
+#
+PT_GEOM_LIST_CSYS_HELP
+List coordinate system names via ProUtilCollectSolidCsys equivalent (port of TestGeom.c)
+#
+#
+PT_GEOM_CSYS_FIRST_MATRIX
+Read First Csys 4x4 Matrix
+#
+#
+PT_GEOM_CSYS_FIRST_MATRIX_HELP
+Read first csys 4x4 transform matrix via CreoCsys.GetMatrix and demo CreoTransform.TransformPoint
+#
+#
+PT_GEOM_SURF_PLANE_INFO
+Read First PLANE Surface Data
+#
+#
+PT_GEOM_SURF_PLANE_INFO_HELP
+Read first PLANE surface via ProSurfacedataGet+ProPlanedataGet and print origin/normal/signed-distance/closest-point demo
+#
+#
+PT_GEOM_CSYS_COORD_SYSTEM
+Read First Csys Coord System Snapshot
+#
+#
+PT_GEOM_CSYS_COORD_SYSTEM_HELP
+Read first csys as CreoCoordSystem (Origin + X/Y/Z) via single GetCoordSystem call and print four-axis snapshot
+#
+#
+PT_GEOM_LIST_SURFACES
+List Solid Surfaces
+#
+#
+PT_GEOM_LIST_SURFACES_HELP
+List surface count and IDs via ProUtilCollectSolidSurfaces equivalent (port of TestGeom.c)
+#
+#
+PT_GEOM_LIST_QUILTS
+List Solid Quilts
+#
+#
+PT_GEOM_LIST_QUILTS_HELP
+List quilt count and IDs via ProUtilCollectSolidQuilts equivalent (port of TestGeom.c)
+#
+#
+PT_DRAWING_LIST_VIEWS
+List Drawing Views
+#
+#
+PT_DRAWING_LIST_VIEWS_HELP
+List drawing view IDs via ProDrawingViewVisit 4-arg signature (requires .drw fixture)
+#
+#
+PT_GEOM_LIST_RELSETS
+List Solid Relation Sets
+#
+#
+PT_GEOM_LIST_RELSETS_HELP
+List relation set names via ProSolidRelsetVisit 2-arg signature
+#
+#
+PT_GEOM_EVAL_AXES_ANGLE
+Evaluate Angle Between First Two Axes
+#
+#
+PT_GEOM_EVAL_AXES_ANGLE_HELP
+Evaluate the angle between the first two axes via ProGeomitemAngleEval (port of TestMeasure.c)
+#
+#
+PT_GEOM_EVAL_AXES_DISTANCE
+Evaluate Distance Between First Two Axes
+#
+#
+PT_GEOM_EVAL_AXES_DISTANCE_HELP
+Evaluate the distance between the first two axes via ProGeomitemDistanceEval (port of TestMeasure.c)
+#
+#
+PT_GEOM_EVAL_SURFACE_DIAMETER
+Evaluate First Cylindrical Surface Diameter
+#
+#
+PT_GEOM_EVAL_SURFACE_DIAMETER_HELP
+Evaluate the diameter of the first surface that yields a result via ProGeomitemDiameterEval (port of TestMeasure.c)
+#
+#
+PT_GEOM_CABLE_BOUNDARIES
+Dump Cable Segment Boundaries
+#
+#
+PT_GEOM_CABLE_BOUNDARIES_HELP
+Read each cable segment start/end boundary via ProCableLocationsOnSegEndGet (cable id from CTK_APP_CABLE_ID env or scan 1..10)
+#
+#
+PT_ASM_PATH_MDL_GET
+Get Assembly Component Path Model
+#
+#
+PT_ASM_PATH_MDL_GET_HELP
+Get the model at an assembly component id path via ProAsmcomppathMdlGet (port of TestAsm.c)
+#
+#
+PT_ASM_PATH_TRANSFORM_GET
+Get Assembly Component Path Transform
+#
+#
+PT_ASM_PATH_TRANSFORM_GET_HELP
+Get the local-to-top transform for an assembly component id path via ProAsmcomppathTrfGet (port of TestAsm.c)
+#
+#
+PT_ASM_TRANSFORM_POINT
+Transform Test Point Through Path Matrix
+#
+#
+PT_ASM_TRANSFORM_POINT_HELP
+Apply the local-to-top path transform to point (1,0,0) via CreoMath.TransformPoint (pure .NET 4x4 math, no native call)
+#
+#
+PT_ASM_TOP_LEVEL_COMPS
+Assembly Top-Level Components
+#
+#
+PT_ASM_TOP_LEVEL_COMPS_HELP
+List top-level component feature ids via ProAssemblyComponentVisit
+#
+#
+PT_ASM_SKELETON_NAME
+Assembly Skeleton Name
+#
+#
+PT_ASM_SKELETON_NAME_HELP
+Show skeleton model name via ProAssemblySkeletonGet
+#
+#
+PT_ASM_IS_EXPLODED
+Assembly Is Exploded
+#
+#
+PT_ASM_IS_EXPLODED_HELP
+Show exploded state via ProAssemblyIsExploded (read-only)
+#
+#
+PT_ASM_SNAPSHOT_TRFS
+Snapshot Transforms Roundtrip
+#
+#
+PT_ASM_SNAPSHOT_TRFS_HELP
+Create snapshot, read component transforms via ProSnapshotTrfsGet, then delete (roundtrip; name from CTK_APP_SNAPSHOT_NAME env or CTK_SNAP_RT default)
+#
+#
+PT_ASM_COMP_ASSEMBLE
+Assemble Component (CSYS)
+#
+#
+PT_ASM_COMP_ASSEMBLE_HELP
+Assemble component with CSYS constraint, verify, then delete (roundtrip)
+#
+#
+PT_ASM_COMP_ASSEMBLE_DUAL
+Assemble Component (Dual ALIGN)
+#
+#
+PT_ASM_COMP_ASSEMBLE_DUAL_HELP
+Assemble component with ALIGN_OFF + ALIGN dual constraints, verify, then delete (roundtrip)
+#
+#
+PT_ASM_COMP_CREATE_COPY
+Create Component By Copy
+#
+#
+PT_ASM_COMP_CREATE_COPY_HELP
+Create component by template copy, set position, verify readback, then delete and erase (roundtrip)
+#
+#
+PT_DRAWING_SHEET_COUNT
+Drawing Sheet Count
+#
+#
+PT_DRAWING_SHEET_COUNT_HELP
+Show drawing sheet total via ProDrawingSheetCount (port of TestDrawing.c)
+#
+#
+PT_DRAWING_VIEW_COUNT
+Drawing View Count
+#
+#
+PT_DRAWING_VIEW_COUNT_HELP
+Show drawing view total via ProDrawingViewsCount (port of TestDrawing.c)
+#
+#
+PT_DRAWING_CURRENT_SHEET
+Drawing Current Sheet
+#
+#
+PT_DRAWING_CURRENT_SHEET_HELP
+Show current drawing sheet index via ProDrawingCurrentSheetGet (port of TestDrawing.c)
+#
+#
+PT_DRAWING_LIST_TABLES
+Drawing List Tables
+#
+#
+PT_DRAWING_LIST_TABLES_HELP
+List drawing tables via ProDrawingTableVisit (port of TestDrawing.c)
+#
+#
+PT_DRAWING_LIST_DETAIL_NOTES
+Drawing List Detail Notes
+#
+#
+PT_DRAWING_LIST_DETAIL_NOTES_HELP
+List drawing detail notes via ProDrawingDtlnoteVisit (port of TestDrawing.c)
+#
+#
+PT_DRAWING_LIST_DTLGROUPS
+Drawing List Draft Groups
+#
+#
+PT_DRAWING_LIST_DTLGROUPS_HELP
+List drawing draft groups via ProDrawingDtlgroupsCollect (Sketch tab view-related probe)
+#
+#
+PT_DRAWING_SELECT_PROBE
+Drawing Select Probe
+#
+#
+PT_DRAWING_SELECT_PROBE_HELP
+Interactive ProSelect probe: user picks items in Creo, handler reads back (type,id) for classification
+#
+#
+PT_DRAWING_TABLE_ROUNDTRIP
+Drawing Table Roundtrip
+#
+#
+PT_DRAWING_TABLE_ROUNDTRIP_HELP
+Create 2x2 drawing table, write cells, read back and delete (ProDwgtable write probe)
+#
+#
+PT_DRAWING_LIST_DTLENTITIES
+Drawing List Draft Entities
+#
+#
+PT_DRAWING_LIST_DTLENTITIES_HELP
+List drawing draft entities via ProDrawingDtlentitiesCollect
+#
+#
+PT_DRAWING_DTLENTITY_DATA
+Drawing Draft Entity Data
+#
+#
+PT_DRAWING_DTLENTITY_DATA_HELP
+Read draft entity data (color/font/line-width) via ProDtlentityDataGet
+#
+#
+PT_DRAWING_DTLENTITY_CURVE_DATA
+Drawing Draft Entity Curve Data
+#
+#
+PT_DRAWING_DTLENTITY_CURVE_DATA_HELP
+Read draft entity curve geometry (kind/end1/end2/center/radius) via ProDtlentitydataCurveGet
+#
+#
+PT_DRAWING_FIXTURE_CREATE
+Drawing Fixture Create
+#
+#
+PT_DRAWING_FIXTURE_CREATE_HELP
+Programmatically draw golden draft entities (Line/Arc/Circle/Point/Ellipse/Spline/BSpline) via ProDtlentityCreate and save
+#
+#
+PT_MATERIAL_LIST_NAMES
+List Material Names
+#
+#
+PT_MATERIAL_LIST_NAMES_HELP
+List all material names of current part via ProPartMaterialsGet (port of TestPartMaterial.c)
+#
+#
+PT_MATERIAL_CURRENT
+Current Material
+#
+#
+PT_MATERIAL_CURRENT_HELP
+Show the current material name via ProMaterialCurrentGet (port of TestPartMaterial.c)
+#
+#
+PT_MATERIAL_DENSITY
+Material Density
+#
+#
+PT_MATERIAL_DENSITY_HELP
+Show the part mass density via ProMaterialPropertyGet PRO_MATPROP_MASS_DENSITY (port of TestPartMaterial.c)
+#
+#
+PT_SOLID_FAILED_FEATURES
+List Failed Features
+#
+#
+PT_SOLID_FAILED_FEATURES_HELP
+List failed feature ids of the current solid via ProSolidFailedfeaturesList
+#
+#
+PT_SOLID_FAMILY_TABLE
+Inspect Family Table
+#
+#
+PT_SOLID_FAMILY_TABLE_HELP
+Check family-table status and list instance names through the public SDK
+#
+#
+PT_LAYER_CONTAINS_ITEM
+Layer Contains First Feature
+#
+#
+PT_LAYER_CONTAINS_ITEM_HELP
+Query whether the first layer contains the first feature via ProLayerItemsPopulate
+#
+#
+PT_AGENT_DEMO
+Agent session info
+#
+#
+PT_AGENT_DEMO_HELP
+Run in-proc Agent session.info demo
+#
+#
+PT_AGENT_DEMO_NO_SESSION
+No Creo session available for Agent demo
+#
+#
+PT_AGENT_PARAM_SET_TEST
+Agent parameter.set test
+#
+#
+PT_AGENT_PARAM_SET_TEST_HELP
+Agent demo: route parameter.set via allow-listed policy
+#
+#
+PT_AGENT_MODEL_SAVE_DENY_TEST
+Agent model.save deny test
+#
+#
+PT_AGENT_MODEL_SAVE_DENY_TEST_HELP
+Agent demo: route model.save with empty allow-list (expect deny)
+#
+#
+PT_AGENT_PIPE_SERVER
+Agent pipe server
+#
+#
+PT_AGENT_PIPE_SERVER_HELP
+Run agent pipe pump loop; Creo UI is BLOCKED while pumping, exit via client verb agent.shutdown
+#
+#
+PROBE_SMOKE_MODEL
+Host probe model smoke
+#
+#
+PROBE_SMOKE_MODEL_HELP
+Run host model smoke (InitializeApp + ctk.probe.smoke.model)
+#
+#
+PT_UNITS_ROUNDTRIP
+Parameter units roundtrip
+#
+#
+PT_UNITS_ROUNDTRIP_HELP
+SetWithUnits + GetWithUnits + ConvertTo mm->inch on current model
+#
+#
+PT_UNITS_PRINCIPAL_SYSTEM
+Model principal unit system
+#
+#
+PT_UNITS_PRINCIPAL_SYSTEM_HELP
+GetPrincipalUnitSystem + UnitSystems list on current model
+#
+#
+PT_UNITS_SET_PRINCIPAL_SYSTEM
+Set principal unit system
+#
+#
+PT_UNITS_SET_PRINCIPAL_SYSTEM_HELP
+SetPrincipalUnitSystem (gated by CTK_REAL_CREO_ALLOW_U3, triggers regen)
+#
+#
+PT_UNITS_ASSIGN_CROSS_QUANTITY
+Assign cross-quantity unit guard
+#
+#
+PT_UNITS_ASSIGN_CROSS_QUANTITY_HELP
+Test AssignUnit with mismatched quantity (length vs mass)
+#
+#
+EXT_CREO_MENU_LABEL
+ExtCreoMenu
+ExtCreoMenu menu
+#
+#
+EXT_CREO_MENU_MAIN_LABEL
+MainMenu
+MainMenu (push button group)
+#
+#
+EXT_CREO_MENU_MAIN_ITEM_LABEL
+MainMenuItem
+Show the main menu item dialog
+#
+#
+EXT_CREO_MENU_MAIN_ITEM_HELP
+Click to trigger MainMenu push button handler
+#
+#
+EXT_CREO_MENU_RADIO_LABEL
+RadioButtonMenu
+RadioButtonMenu (radio group)
+#
+#
+EXT_CREO_MENU_RADIO_GROUP
+RadioButtonGroup
+Radio group containing 4 items
+#
+#
+EXT_CREO_MENU_RADIO_DESC
+ExtCreoMenu radio group description
+#
+#
+EXT_CREO_MENU_RADIO_ITEM1_LABEL
+RadioItem1
+Radio item 1
+#
+#
+EXT_CREO_MENU_RADIO_ITEM1_HELP
+Select to set radio value to item1
+#
+#
+EXT_CREO_MENU_RADIO_ITEM2_LABEL
+RadioItem2
+Radio item 2
+#
+#
+EXT_CREO_MENU_RADIO_ITEM2_HELP
+Select to set radio value to item2
+#
+#
+EXT_CREO_MENU_RADIO_ITEM3_LABEL
+RadioItem3
+Radio item 3
+#
+#
+EXT_CREO_MENU_RADIO_ITEM3_HELP
+Select to set radio value to item3
+#
+#
+EXT_CREO_MENU_RADIO_ITEM4_LABEL
+RadioItem4
+Radio item 4
+#
+#
+EXT_CREO_MENU_RADIO_ITEM4_HELP
+Select to set radio value to item4
+#
+#
+EXT_CREO_MENU_CHECK_LABEL
+CheckButtonMenu
+CheckButtonMenu (toggle group)
+#
+#
+EXT_CREO_MENU_CHECK_ITEM_LABEL
+CheckButtonItem
+Toggle the check button state
+#
+#
+EXT_CREO_MENU_CHECK_ITEM_HELP
+Click to toggle and write JSONL log
+#
+#
+EXT_CREO_MENU_MAIN_DIALOG
+MainMenu push handler invoked (JSONL written)
+#
+#
+EXT_CREO_MENU_RADIO_PICKED
+Radio item picked
+#
+#
+EXT_CREO_MENU_CHECK_TOGGLED
+Check toggled
+#
+#
+PT_UDF_SUBSCRIBE_BLOCK_UNGROUP
+Subscribe GroupUngroupPre (block)
+Subscribe to PRO_GROUP_UNGROUP_PRE; handler blocks every ungroup attempt.
+#
+#
+PT_UDF_SUBSCRIBE_BLOCK_UNGROUP_HELP
+Try Edit -> Ungroup after running this command; Creo refuses with managed log udf.ungroup.blocked.
+#
+#
+PT_UDF_NO_SESSION
+No active Creo session; load a model before subscribing.
+#
+#
+PT_AGENT_SELECTION_PHR_TEST
+Agent: Selection PHR full chain
+Run selection.pick-programmatic + highlight + release in one router scope (HandleRegistry token).
+#
+#
+PT_AGENT_SELECTION_PHR_TEST_HELP
+Pick FRONT and TOP via Agent, highlight index 0, release token; managed log shows phr-pick/highlight/release stages.
+#
+#
+CTK_USER_MSG
+%0w
+#
+#
+PT_MODEL_INSPECT_GEOMETRY_SNIPPET
+Model Inspect Geometry Snippet
+#
+#
+PT_MODEL_INSPECT_GEOMETRY_SNIPPET_HELP
+Run pure .NET geometry helpers (collinear / segment-vs-plane / triangle area / point removal)
+#
+#
+PT_MODEL_INSPECT_FEATURE_SUMMARY
+Model Inspect Feature Summary
+#
+#
+PT_MODEL_INSPECT_FEATURE_SUMMARY_HELP
+List features on the configured model and read first feature element tree node count (read-only batch scan)
+#
+#
+PT_MODEL_INSPECT_PARAM_CATEGORIZE
+Model Inspect Parameter Categorize
+#
+#
+PT_MODEL_INSPECT_PARAM_CATEGORIZE_HELP
+List parameters of the configured model and bucket by name prefix CTK_ / PIPE_ / CFG_
+#
+#
+PT_ELEM_TREE_WALK
+Walk Element Tree (Deep)
+#
+#
+PT_ELEM_TREE_WALK_HELP
+Walk all features element tree with typed values (deep mode diagnostic)
+#
+#
+PT_ELEM_DATUM_CREATE
+Create Offset Datum Plane
+#
+#
+PT_ELEM_DATUM_CREATE_HELP
+Create datum plane offset from first planar surface then verify and delete
+#
+#
+PT_ELEM_HOLE_CREATE
+Create Straight Linear Hole
+#
+#
+PT_ELEM_HOLE_CREATE_HELP
+Create straight hole on orthogonal plane triple then read back and delete
+#
+#
+PT_ELEM_HOLE_REDEFINE
+Redefine Hole Diameter
+#
+#
+PT_ELEM_HOLE_REDEFINE_HELP
+Create hole then redefine diameter from 5 to 8 and verify readback
+#
+#
+PT_ELEMTREE_EXPORT_XML
+Export Element Trees to XML
+#
+#
+PT_ELEMTREE_EXPORT_XML_HELP
+Extract all feature element trees from models in input directory and write as XML files
+#
+#
+PT_MODEL_SURVEY
+Model Survey
+#
+#
+PT_MODEL_SURVEY_HELP
+Scan working directory models and output feature type distribution CSV
+#
+#
+CTK_ROOT_MENU_LABEL
+CreoToolkit
+#
+#
+CTK_DIALOG_BASIC_SESSION
+Basic & Session
+#
+#
+CTK_DIALOG_BASIC_SESSION_HELP
+Open Basic & Session dialog (status/userguide/window-repaint/probe)
+#
+#
+CTK_DIALOG_MODEL_DATABASE
+Model & Database
+#
+#
+CTK_DIALOG_MODEL_DATABASE_HELP
+Open Model & Database dialog (dbase/material)
+#
+#
+CTK_DIALOG_FEATURE_GEOM
+Feature & Geometry
+#
+#
+CTK_DIALOG_FEATURE_GEOM_HELP
+Open Feature & Geometry dialog (feature/geom/layer)
+#
+#
+CTK_DIALOG_PARAMS_UNITS
+Parameters & Units
+#
+#
+CTK_DIALOG_PARAMS_UNITS_HELP
+Open Parameters & Units dialog (params/units)
+#
+#
+CTK_DIALOG_DIM_DRAWING
+Dimensions & Drawing
+#
+#
+CTK_DIALOG_DIM_DRAWING_HELP
+Open Dimensions & Drawing dialog
+#
+#
+CTK_DIALOG_ASM_SELECT
+Assembly & Selection
+#
+#
+CTK_DIALOG_ASM_SELECT_HELP
+Open Assembly & Selection dialog
+#
+#
+CTK_DIALOG_DIAG_DEMO
+Diagnostics & Bridge Demo
+#
+#
+CTK_DIALOG_DIAG_DEMO_HELP
+Open Diagnostics & Bridge Demo dialog (install/agent/udf/inspect)
+#
+#

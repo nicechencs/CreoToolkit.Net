@@ -1,0 +1,136 @@
+<Project>
+
+  <!--
+    CreoToolkit.Interop.Generation.targets
+    构建时按 CreoVersion 生成 Interop 绑定（gitignore 产物），并把生成的 .cs 编译进 Interop。
+
+    设计：
+      - 属性 CreoVersion 默认 Creo4_M140，可 -p:CreoVersion=Creo9_060 覆盖。
+      - 版本 -> SDK 路径映射（_CreoSdkRoot / _CreoIncludes），与 Python 侧 sdk_paths.py 同规则。
+      - Target GenerateCreoBindings（BeforeTargets=CoreCompile）增量执行：
+          Inputs  = 生成器脚本 + interop-manifest/ownership.yml + 该版本 ir.json
+          Outputs = Generated/<CreoVersion>/.stamp
+        ir.json 缺失才跑 parse_headers.py（慢，仅首次/头文件变更），否则只跑 gen_bindings.py（快）。
+      - Python 缺失且 Generated/<CreoVersion> 已有产物 -> 跳过（容错，沿用已生成文件）。
+      - Python 与产物都缺 -> 清晰报错（提示装 Python+libclang）。
+      - 关掉 Generated/ 的 SDK 默认 glob，改为仅显式包含 Generated/<CreoVersion>/**，
+        避免多版本目录同时编译 / 类型重复定义。
+  -->
+
+  <PropertyGroup>
+    <!-- 目标 Creo 版本（默认 Creo4_M140；可被命令行 -p:CreoVersion= 覆盖） -->
+    <CreoVersion Condition="'$(CreoVersion)' == ''">Creo4_M140</CreoVersion>
+
+    <!-- 仓库内关键目录（本 .targets 位于 src/CreoToolkit.Interop/） -->
+    <_GenRoot>$(MSBuildThisFileDirectory)Generated</_GenRoot>
+    <_GenDir>$(_GenRoot)\$(CreoVersion)</_GenDir>
+    <_GenStamp>$(_GenDir)\.stamp</_GenStamp>
+    <_GeneratorDir>$(MSBuildThisFileDirectory)..\..\tools\CreoToolkit.Generator</_GeneratorDir>
+    <_IrJson>$(_GeneratorDir)\out\$(CreoVersion)\ir.json</_IrJson>
+
+    <!-- (SDK 根/includes 由 tools/CreoToolkit.Generator/sdk_paths.py 内部解析,
+         本 .targets 仅调度 generator 与编译,无需 SDK 路径属性。) -->
+
+    <!-- Python 解释器（PATH 中的 python） -->
+    <_Python Condition="'$(_Python)' == ''">python</_Python>
+  </PropertyGroup>
+
+  <!-- 关掉 Generated/ 的 SDK 默认编译 glob，改为后续仅显式包含选定版本 -->
+  <ItemGroup>
+    <Compile Remove="Generated\**\*.cs" />
+  </ItemGroup>
+
+  <!--
+    生成绑定。增量：Outputs=.stamp，Inputs=脚本+ir.json；都不变则跳过。
+    BeforeTargets=CoreCompile 确保在编译前产出（且在下方 _IncludeGeneratedBindings 之前）。
+  -->
+  <Target Name="GenerateCreoBindings"
+          BeforeTargets="CoreCompile;_IncludeGeneratedBindings"
+          Inputs="$(_GeneratorDir)\gen_bindings.py;$(_GeneratorDir)\gen_free_contract.py;$(_GeneratorDir)\parse_headers.py;$(_GeneratorDir)\extract_deprecations.py;$(_GeneratorDir)\sdk_paths.py;$(MSBuildThisFileDirectory)..\..\interop-manifest\ownership.yml;$(_IrJson)"
+          Outputs="$(_GenStamp)">
+
+    <!-- 探测 Python 是否可用（exe 非 0 不致命，记录到 _PythonExit） -->
+    <Exec Command="$(_Python) --version"
+          ContinueOnError="true"
+          StandardOutputImportance="low"
+          StandardErrorImportance="low">
+      <Output TaskParameter="ExitCode" PropertyName="_PythonExit" />
+    </Exec>
+
+    <PropertyGroup>
+      <_HavePython Condition="'$(_PythonExit)' == '0'">true</_HavePython>
+      <_HavePython Condition="'$(_PythonExit)' != '0'">false</_HavePython>
+      <!-- _HaveGenerator: 公开仓发布场景下 tools/CreoToolkit.Generator/ 不存在,
+           所有 Exec 步骤必须跳过, 沿用已 commit 的 Generated/。 -->
+      <_HaveGenerator Condition="Exists('$(_GeneratorDir)')">true</_HaveGenerator>
+      <_HaveGenerator Condition="!Exists('$(_GeneratorDir)')">false</_HaveGenerator>
+      <_CanGenerate Condition="'$(_HavePython)' == 'true' and '$(_HaveGenerator)' == 'true'">true</_CanGenerate>
+      <_CanGenerate Condition="'$(_CanGenerate)' != 'true'">false</_CanGenerate>
+      <_HaveGenerated Condition="Exists('$(_GenDir)')">true</_HaveGenerated>
+      <_HaveGenerated Condition="!Exists('$(_GenDir)')">false</_HaveGenerated>
+      <_HaveIr Condition="Exists('$(_IrJson)')">true</_HaveIr>
+      <_HaveIr Condition="!Exists('$(_IrJson)')">false</_HaveIr>
+    </PropertyGroup>
+
+    <!-- 容错：生成器/Python 缺失但已有产物 -> 沿用,跳过生成 (开源仓发布场景) -->
+    <Message Condition="'$(_CanGenerate)' == 'false' and '$(_HaveGenerated)' == 'true'"
+             Importance="high"
+             Text="[CreoBindings] 生成器或 Python 不可用,沿用已存在的 Generated\$(CreoVersion) (跳过生成)。" />
+
+    <!-- 致命：无法生成 + 无现成产物 -> 报错 -->
+    <Error Condition="'$(_CanGenerate)' == 'false' and '$(_HaveGenerated)' == 'false'"
+           Text="[CreoBindings] 无可用生成路径: 缺少 tools\CreoToolkit.Generator (或 Python 3.x + libclang),且 Generated\$(CreoVersion) 不存在。" />
+
+    <!-- 可生成 + 缺 ir.json: 先跑慢 parse (首次/头文件变更) -->
+    <Message Condition="'$(_CanGenerate)' == 'true' and '$(_HaveIr)' == 'false'"
+             Importance="high"
+             Text="[CreoBindings] $(CreoVersion): ir.json 缺失,先解析头文件 (parse_headers.py)..." />
+    <Exec Condition="'$(_CanGenerate)' == 'true' and '$(_HaveIr)' == 'false'"
+          Command="$(_Python) parse_headers.py --version $(CreoVersion)"
+          WorkingDirectory="$(_GeneratorDir)" />
+
+    <!-- 弃用标注提取 (extract_deprecations.py): 纯文本扫头文件, 无 libclang 依赖,
+         gen_bindings.py 用其产物注入 [Obsolete]。每次生成前跑, 保头文件变更即时反映。 -->
+    <Message Condition="'$(_CanGenerate)' == 'true'"
+             Importance="high"
+             Text="[CreoBindings] $(CreoVersion): 提取弃用标注 (extract_deprecations.py)..." />
+    <Exec Condition="'$(_CanGenerate)' == 'true'"
+          Command="$(_Python) extract_deprecations.py --version $(CreoVersion)"
+          WorkingDirectory="$(_GeneratorDir)" />
+
+    <Message Condition="'$(_CanGenerate)' == 'true'"
+             Importance="high"
+             Text="[CreoBindings] $(CreoVersion): 生成绑定 (gen_bindings.py)..." />
+    <Exec Condition="'$(_CanGenerate)' == 'true'"
+          Command="$(_Python) gen_bindings.py --version $(CreoVersion)"
+          WorkingDirectory="$(_GeneratorDir)" />
+
+    <!-- 若 .stamp 未被 gen_bindings 写出（极端容错路径），补一个，保证增量 Outputs 成立 -->
+    <Touch Files="$(_GenStamp)" AlwaysCreate="true"
+           Condition="!Exists('$(_GenStamp)')" />
+  </Target>
+
+  <!--
+    多 TFM 竞态防护:outer build(无 TargetFramework)先生成一次,
+    inner builds 靠 .stamp 增量判定直接跳过——
+    消除双 python 进程同写 Generated/ 的截断竞态(生成器侧另有原子写兜底)。
+    当前 Interop 只有 net472，此 Target 在单 TFM 下不会跑。
+  -->
+  <Target Name="_GenerateCreoBindingsOuter"
+          BeforeTargets="DispatchToInnerBuilds"
+          Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' != ''"
+          DependsOnTargets="GenerateCreoBindings" />
+
+  <!--
+    把生成的 .cs 显式纳入编译。在 CoreCompile 前、GenerateCreoBindings 后运行，
+    确保拿到的是本次（可能刚生成）的文件清单。
+  -->
+  <Target Name="_IncludeGeneratedBindings"
+          BeforeTargets="CoreCompile"
+          DependsOnTargets="GenerateCreoBindings">
+    <ItemGroup>
+      <Compile Include="$(_GenDir)\**\*.cs" />
+    </ItemGroup>
+  </Target>
+
+</Project>
